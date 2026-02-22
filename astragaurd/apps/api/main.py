@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -34,8 +36,18 @@ from packages.telemetry.service import emit_event  # noqa: E402
 
 
 app = FastAPI(title="AstraGuard API", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
+
 PROCESSED_DIR = REPO_ROOT / "data" / "processed"
 ARTIFACTS_LATEST_PATH = PROCESSED_DIR / "artifacts_latest.json"
+TOP_CONJUNCTIONS_PATH = PROCESSED_DIR / "top_conjunctions.json"
+CESIUM_SNAPSHOT_PATH  = PROCESSED_DIR / "cesium_orbits_snapshot.json"
 
 
 def _iso_utc_now() -> str:
@@ -80,6 +92,20 @@ def _validate_request(payload: Dict[str, Any]) -> None:
 @app.get("/artifacts/latest")
 def get_artifacts_latest() -> Dict[str, Any]:
     return _load_artifacts_latest()
+
+
+@app.get("/artifacts/top-conjunctions")
+def get_top_conjunctions() -> Dict[str, Any]:
+    if not TOP_CONJUNCTIONS_PATH.exists():
+        raise HTTPException(status_code=404, detail={"schema_version": SCHEMA_VERSION, "error": "TOP_CONJUNCTIONS_NOT_FOUND"})
+    return _read_json(TOP_CONJUNCTIONS_PATH)
+
+
+@app.get("/artifacts/cesium-snapshot")
+def get_cesium_snapshot() -> FileResponse:
+    if not CESIUM_SNAPSHOT_PATH.exists():
+        raise HTTPException(status_code=404, detail={"schema_version": SCHEMA_VERSION, "error": "CESIUM_SNAPSHOT_NOT_FOUND"})
+    return FileResponse(str(CESIUM_SNAPSHOT_PATH), media_type="application/json")
 
 
 @app.post("/run-autonomy-loop")

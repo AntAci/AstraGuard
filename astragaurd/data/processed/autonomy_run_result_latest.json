@@ -1,9 +1,9 @@
 {
-  "run_id": "RUN-20260222010633",
+  "run_id": "RUN-20260222023414",
   "status": "completed",
-  "started_at_utc": "2026-02-22T01:06:33Z",
-  "completed_at_utc": "2026-02-22T01:06:33Z",
-  "selected_event_id": "EVT-28252-28378-2026-02-24T14:31:17Z",
+  "started_at_utc": "2026-02-22T02:34:14Z",
+  "completed_at_utc": "2026-02-22T02:34:14Z",
+  "selected_event_id": "EVT-27426-28935-2026-02-24T14:11:17Z",
   "top_event_ids": [
     "EVT-28252-28378-2026-02-24T14:31:17Z",
     "EVT-27640-29522-2026-02-23T15:32:17Z",
@@ -12,8 +12,8 @@
     "EVT-27848-28370-2026-02-24T17:25:17Z"
   ],
   "vision_report": {
-    "vision_report_id": "VR-20260222010633",
-    "event_id": "EVT-28252-28378-2026-02-24T14:31:17Z",
+    "vision_report_id": "VR-20260222023414",
+    "event_id": "EVT-27426-28935-2026-02-24T14:11:17Z",
     "provider": "gemini-2.0-flash",
     "model_version": "gemini-2.0-flash",
     "status": "ok",
@@ -26,12 +26,12 @@
         "detail": "Event reviewed against current artifact set."
       }
     ],
-    "generated_at_utc": "2026-02-22T01:06:33Z",
+    "generated_at_utc": "2026-02-22T02:34:14Z",
     "schema_version": "1.0.0"
   },
   "consultant_decision": {
-    "decision_id": "DEC-20260222010633",
-    "event_id": "EVT-28252-28378-2026-02-24T14:31:17Z",
+    "decision_id": "DEC-20260222023414",
+    "event_id": "EVT-27426-28935-2026-02-24T14:11:17Z",
     "provider": "claude-3-7-sonnet",
     "model_version": "claude-3-7-sonnet",
     "decision": "IGNORE",
@@ -40,32 +40,32 @@
     "recommended_actions": [
       "no_action"
     ],
-    "generated_at_utc": "2026-02-22T01:06:33Z",
+    "generated_at_utc": "2026-02-22T02:34:14Z",
     "schema_version": "1.0.0"
   },
   "value_signal": {
-    "value_signal_id": "VAL-20260222010633",
-    "event_id": "EVT-28252-28378-2026-02-24T14:31:17Z",
+    "value_signal_id": "VAL-20260222023414",
+    "event_id": "EVT-27426-28935-2026-02-24T14:11:17Z",
     "provider": "paid_ai",
     "model_version": "paid_ai",
     "estimated_loss_avoided_usd": 1000.0,
     "estimated_cost_usd": 25.0,
     "roi_ratio": 40.0,
     "confidence": 0.6,
-    "generated_at_utc": "2026-02-22T01:06:33Z",
+    "generated_at_utc": "2026-02-22T02:34:14Z",
     "schema_version": "1.0.0"
   },
   "payment_result": {
-    "payment_result_id": "PAY-20260222010633",
-    "decision_id": "DEC-20260222010633",
-    "event_id": "EVT-28252-28378-2026-02-24T14:31:17Z",
+    "payment_result_id": "PAY-20260222023414",
+    "decision_id": "DEC-20260222023414",
+    "event_id": "EVT-27426-28935-2026-02-24T14:11:17Z",
     "provider": "stripe",
     "mode": "dry_run",
     "status": "skipped",
     "amount_usd": 25.0,
     "currency": "USD",
     "payment_intent_id": null,
-    "processed_at_utc": "2026-02-22T01:06:33Z",
+    "processed_at_utc": "2026-02-22T02:34:14Z",
     "schema_version": "1.0.0"
   },
   "voice": {
