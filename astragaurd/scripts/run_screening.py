@@ -73,6 +73,22 @@ def _normalize_groups(values: List[str]) -> List[str]:
     return out
 
 
+def _is_active_group(group: str) -> bool:
+    return str(group).upper() == "ACTIVE"
+
+
+def _is_debris_group(group: str) -> bool:
+    return "DEBRIS" in str(group).upper()
+
+
+def _is_active_vs_debris(primary_group: str, secondary_group: str) -> bool:
+    p_active = _is_active_group(primary_group)
+    s_active = _is_active_group(secondary_group)
+    p_debris = _is_debris_group(primary_group)
+    s_debris = _is_debris_group(secondary_group)
+    return (p_active and s_active) or (p_active and s_debris) or (s_active and p_debris)
+
+
 def _datetime_to_julian(dt: datetime) -> float:
     dt = dt.astimezone(timezone.utc)
     year = dt.year
@@ -471,11 +487,16 @@ def main() -> int:
 
     stage_start = time.time()
     events: List[ConjunctionEvent] = []
+    filtered_disallowed_pairs = 0
     for row in refined:
         primary_id = int(row["primary_id"])
         secondary_id = int(row["secondary_id"])
         primary_group = str(row["primary_group"]).upper()
         secondary_group = str(row["secondary_group"]).upper()
+
+        if not _is_active_vs_debris(primary_group, secondary_group):
+            filtered_disallowed_pairs += 1
+            continue
 
         if secondary_id < primary_id:
             primary_id, secondary_id = secondary_id, primary_id
@@ -517,6 +538,11 @@ def main() -> int:
 
     events.sort(key=lambda e: (-e.risk_score, e.miss_distance_m))
     top_events = events[: max(0, int(args.top_k))]
+    if filtered_disallowed_pairs:
+        print(
+            "[INFO] Filtered conjunctions (disallowed pair types): "
+            f"{filtered_disallowed_pairs}"
+        )
     print(f"[INFO] Stage risk_scoring took {time.time() - stage_start:.2f}s")
 
     required_norads = {e.primary_id for e in top_events} | {e.secondary_id for e in top_events}

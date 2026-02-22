@@ -24,8 +24,10 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
   const decisionRationale = Array.isArray(decision?.rationale)
     ? decision.rationale.join(' ')
     : (decision?.rationale ?? '')
-  const provider = phase3Decision?.llm_provider ?? decision?.provider
   const roiRatio = result?.result.roi ?? value?.roi_ratio ?? 0
+  const isHighEarthImpact = (earthImpact?.impact_score ?? 0) > 0.5
+  const earthImpactColor = isHighEarthImpact ? 'var(--red)' : 'var(--green)'
+  const earthImpactBackground = isHighEarthImpact ? 'rgba(176, 64, 63, 0.14)' : 'rgba(46, 138, 102, 0.14)'
 
   return (
     <div className="panel" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -55,7 +57,7 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
             {selectedEvent ? (
               <>
                 <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 8 }}>
-                  Selected: <span style={{ color: 'var(--cyan)' }}>{selectedEvent.primary_name}</span>
+                  Selected: <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{selectedEvent.primary_name}</span>
                 </div>
                 <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>
                   Click above to analyze this conjunction event
@@ -89,7 +91,7 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.1em' }}>CONFIDENCE</span>
-                <span style={{ color: 'var(--cyan)', fontSize: 11 }}>
+                <span style={{ color: 'var(--accent-primary)', fontSize: 11, fontWeight: 600 }}>
                   {Math.round((phase3Decision?.confidence ?? decision.confidence) * 100)}%
                 </span>
               </div>
@@ -110,12 +112,11 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                   <div style={{
                     width: 32, height: 32, borderRadius: '50%',
-                    background: earthImpact.impact_score > 0.5
-                      ? 'rgba(255,68,68,0.2)' : 'rgba(0,255,136,0.2)',
-                    border: `2px solid ${earthImpact.impact_score > 0.5 ? '#ff4444' : '#00ff88'}`,
+                    background: earthImpactBackground,
+                    border: `2px solid ${earthImpactColor}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 11, fontWeight: 700,
-                    color: earthImpact.impact_score > 0.5 ? '#ff4444' : '#00ff88',
+                    color: earthImpactColor,
                   }}>
                     {Math.round(earthImpact.impact_score * 100)}%
                   </div>
@@ -154,16 +155,6 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
               </div>
             </div>
 
-            {/* Provider */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.1em', marginBottom: 6 }}>
-                MODEL PROVIDER
-              </div>
-              <div style={{ color: 'var(--cyan)', fontSize: 11 }}>
-                {(provider ?? 'fallback').toUpperCase()}
-              </div>
-            </div>
-
             {/* Recommended actions */}
             {decision.recommended_actions.length > 0 && (
               <div style={{ marginBottom: 16 }}>
@@ -174,11 +165,11 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                   <div key={action} style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     padding: '5px 8px', marginBottom: 4,
-                    background: 'rgba(0,200,255,0.05)',
-                    borderRadius: 4,
-                    border: '1px solid rgba(0,200,255,0.1)',
+                    background: 'var(--bg-soft-accent)',
+                    borderRadius: 8,
+                    border: '1px solid var(--border-subtle)',
                   }}>
-                    <span style={{ color: 'var(--cyan)', fontSize: 10 }}>▶</span>
+                    <span style={{ color: 'var(--accent-secondary)', fontSize: 10 }}>▶</span>
                     <span style={{ color: 'var(--text-primary)', fontSize: 11 }}>{action}</span>
                   </div>
                 ))}
@@ -200,7 +191,7 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                   />
                   <ValueMetric label="Confidence" value={`${Math.round((value.confidence ?? 0) * 100)}%`} />
                   {adjustedLoss != null && (
-                    <ValueMetric label="Adj. Loss" value={`$${(adjustedLoss / 1000).toFixed(0)}K`} color="var(--yellow, #ffcc00)" />
+                    <ValueMetric label="Adj. Loss" value={`$${(adjustedLoss / 1000).toFixed(0)}K`} color="var(--yellow)" />
                   )}
                 </div>
               </div>
@@ -215,11 +206,11 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{
                     padding: '3px 10px',
-                    borderRadius: 4,
+                    borderRadius: 999,
                     fontSize: 11,
                     background: payment.status === 'skipped'
-                      ? 'rgba(255,204,0,0.1)'
-                      : 'rgba(0,255,136,0.1)',
+                      ? 'rgba(155, 120, 7, 0.1)'
+                      : 'rgba(46, 138, 102, 0.1)',
                     border: `1px solid ${payment.status === 'skipped' ? 'var(--yellow)' : 'var(--green)'}`,
                     color: payment.status === 'skipped' ? 'var(--yellow)' : 'var(--green)',
                   }}>
@@ -235,14 +226,34 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                   </div>
                 )}
                 {phase3Payment?.checkout_url && (
-                  <a
-                    href={phase3Payment.checkout_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ color: 'var(--cyan)', fontSize: 10, marginTop: 6, display: 'inline-block' }}
-                  >
-                    Open Checkout Session
-                  </a>
+                  <>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 11, lineHeight: 1.45, marginTop: 8 }}>
+                      Continue to secure checkout to complete this payment step.
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+                      <a
+                        href={phase3Payment.checkout_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          minWidth: 260,
+                          padding: '12px 22px',
+                          borderRadius: 999,
+                          background: 'var(--accent-primary)',
+                          color: '#ffffff',
+                          fontSize: 13,
+                          fontWeight: 700,
+                          letterSpacing: '0.04em',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        Open Secure Checkout
+                      </a>
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -290,9 +301,9 @@ function ValueMetric({ label, value, color = 'var(--text-primary)' }: { label: s
   return (
     <div style={{
       padding: '6px 10px',
-      background: 'rgba(0,0,0,0.3)',
-      borderRadius: 4,
-      border: '1px solid rgba(0,200,255,0.08)',
+      background: 'var(--bg-muted)',
+      borderRadius: 8,
+      border: '1px solid var(--border-subtle)',
     }}>
       <div style={{ color: 'var(--text-muted)', fontSize: 9, letterSpacing: '0.08em', marginBottom: 3 }}>{label.toUpperCase()}</div>
       <div style={{ color, fontSize: 14, fontWeight: 700 }}>{value}</div>

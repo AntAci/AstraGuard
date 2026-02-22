@@ -129,7 +129,7 @@ export default function EventList({
         <div style={{ padding: '10px 14px', borderBottom: 'var(--panel-border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
             <span style={{ color: 'var(--text-muted)', fontSize: 11, letterSpacing: '0.05em' }}>TIME STEP</span>
-            <span style={{ color: 'var(--cyan)', fontSize: 11 }}>
+            <span style={{ color: 'var(--accent-primary)', fontSize: 11, fontWeight: 600 }}>
               {timeIndex + 1} / {totalTimesteps}
             </span>
           </div>

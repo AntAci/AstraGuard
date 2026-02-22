@@ -6,7 +6,7 @@ interface Props {
 }
 
 const LEVEL_COLOR: Record<string, string> = {
-  info: 'var(--cyan)',
+  info: 'var(--accent-primary)',
   success: 'var(--green)',
   warning: 'var(--yellow)',
   error: 'var(--red)',
@@ -32,14 +32,14 @@ export default function MissionLog({ entries }: Props) {
       style={{ display: 'flex', flexDirection: 'column', height: 180, flexShrink: 0 }}
     >
       <div className="panel-header">Mission Log</div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px', fontFamily: 'monospace', fontSize: 11 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px', fontFamily: 'var(--font-label)', fontSize: 11 }}>
         {entries.length === 0 ? (
           <div style={{ color: 'var(--text-muted)' }}>Awaiting events...</div>
         ) : (
           entries.map((entry) => (
             <div key={entry.id} style={{ marginBottom: 4, lineHeight: 1.5 }}>
               <span style={{ color: 'var(--text-muted)' }}>{entry.timestamp} </span>
-              <span style={{ color: LEVEL_COLOR[entry.level] ?? 'var(--cyan)' }}>
+              <span style={{ color: LEVEL_COLOR[entry.level] ?? 'var(--accent-primary)' }}>
                 {LEVEL_PREFIX[entry.level] ?? '[LOG]'}{' '}
               </span>
               <span style={{ color: 'var(--text-primary)' }}>{entry.message}</span>
