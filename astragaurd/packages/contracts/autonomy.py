@@ -13,11 +13,13 @@ DECISION_IGNORE = "IGNORE"
 DECISION_MONITOR = "MONITOR"
 DECISION_INSURE = "INSURE"
 DECISION_MANEUVER = "MANEUVER"
+DECISION_DEFER = "DEFER"
 VALID_DECISIONS = {
     DECISION_IGNORE,
     DECISION_MONITOR,
     DECISION_INSURE,
     DECISION_MANEUVER,
+    DECISION_DEFER,
 }
 
 
@@ -149,6 +151,10 @@ class AutonomyRunResult:
     errors: List[str]
     earth_impact: Optional[EarthImpact] = None
     expected_loss_adjusted_usd: Optional[float] = None
+    decision_mode: Optional[str] = None
+    trend_metrics: Optional[Dict[str, Any]] = None
+    defer_until_utc: Optional[str] = None
+    maneuver_plan: Optional[Dict[str, Any]] = None
     llm_observability: Optional[Dict[str, Any]] = None
     model_version: str = AUTONOMY_MODEL_VERSION
     schema_version: str = SCHEMA_VERSION

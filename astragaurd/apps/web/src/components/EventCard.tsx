@@ -37,6 +37,13 @@ export default function EventCard({ event, selected, onClick }: Props) {
   const pcExp = event.pc_assumed > 0
     ? `1e${Math.round(Math.log10(event.pc_assumed))}`
     : '< 1e-10'
+  const decisionHint = event.decision_mode_hint ?? null
+  const badgeClass = decisionHint
+    ? `badge-${decisionHint}`
+    : `badge-${event.risk_tier === 'CRITICAL' ? 'MANEUVER' : event.risk_tier === 'HIGH' ? 'INSURE' : event.risk_tier === 'MEDIUM' ? 'MONITOR' : 'IGNORE'}`
+  const badgeText = decisionHint === 'MANEUVER' && typeof event.plan_delta_v_mps === 'number'
+    ? `MANEUVER ${event.plan_delta_v_mps.toFixed(3)}m/s`
+    : (decisionHint ?? event.risk_tier)
 
   return (
     <div
@@ -60,10 +67,10 @@ export default function EventCard({ event, selected, onClick }: Props) {
           {primaryLabel}
         </span>
         <span
-          className={`badge badge-${event.risk_tier === 'CRITICAL' ? 'MANEUVER' : event.risk_tier === 'HIGH' ? 'INSURE' : event.risk_tier === 'MEDIUM' ? 'MONITOR' : 'IGNORE'}`}
+          className={`badge ${badgeClass}`}
           style={{ fontSize: 9 }}
         >
-          {event.risk_tier}
+          {badgeText}
         </span>
       </div>
       <div style={{ color: 'var(--text-muted)', fontSize: 11, marginBottom: 2 }}>
@@ -80,6 +87,16 @@ export default function EventCard({ event, selected, onClick }: Props) {
       <div style={{ color: 'var(--text-muted)', fontSize: 10, marginTop: 4 }}>
         TCA: {event.tca_utc.replace('T', ' ').replace('Z', ' UTC')}
       </div>
+      {decisionHint === 'DEFER' && event.defer_until_utc && (
+        <div style={{ color: 'var(--yellow)', fontSize: 10, marginTop: 2 }}>
+          Defer until: {event.defer_until_utc.replace('T', ' ').replace('Z', ' UTC')}
+        </div>
+      )}
+      {decisionHint === 'MANEUVER' && event.plan_burn_time_utc && (
+        <div style={{ color: 'var(--red)', fontSize: 10, marginTop: 2 }}>
+          Burn: {event.plan_burn_time_utc.replace('T', ' ').replace('Z', ' UTC')}
+        </div>
+      )}
     </div>
   )
 }

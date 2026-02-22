@@ -1,4 +1,4 @@
-import type { RunAutonomyLoopResponse, ConjunctionEvent, EarthImpact } from '../types'
+import type { RunAutonomyLoopResponse, ConjunctionEvent, EarthImpact, TrendMetrics, ManeuverPlan } from '../types'
 
 interface Props {
   result: RunAutonomyLoopResponse | null
@@ -12,13 +12,24 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
   const value = result?.result.value_signal
   const payment = result?.result.payment_result
   const phase3Decision = result?.result.decision as
-    | { llm_provider?: string; expected_loss_usd?: number; rationale?: string[]; confidence?: number }
+    | {
+      llm_provider?: string
+      expected_loss_usd?: number
+      rationale?: string[]
+      confidence?: number
+      decision_mode?: string
+      defer_until_utc?: string | null
+    }
     | undefined
   const phase3Payment = result?.result.payment as
     | { id?: string | null; checkout_url?: string | null; status?: string; mode?: string }
     | undefined
   const voice = result?.result.voice
   const earthImpact = result?.result.earth_impact as EarthImpact | undefined
+  const trendMetrics = result?.result.trend_metrics as TrendMetrics | undefined
+  const maneuverPlan = result?.result.maneuver_plan as ManeuverPlan | null | undefined
+  const decisionMode = (result?.result.decision_mode ?? phase3Decision?.decision_mode ?? decision?.decision ?? 'IGNORE').toUpperCase()
+  const deferUntil = result?.result.defer_until_utc ?? phase3Decision?.defer_until_utc ?? null
   const adjustedLoss = result?.result.expected_loss_adjusted_usd
   const narration = result?.result.narration_text
   const decisionRationale = Array.isArray(decision?.rationale)
@@ -80,12 +91,53 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                 DECISION
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span className={`badge badge-${decision.decision}`}>{decision.decision}</span>
+                <span className={`badge badge-${decisionMode}`}>{decisionMode}</span>
                 <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
                   {new Date(decision.generated_at_utc).toLocaleTimeString()}
                 </span>
               </div>
+              {deferUntil && (
+                <div style={{ color: 'var(--yellow)', fontSize: 11, marginTop: 6 }}>
+                  Defer until: {new Date(deferUntil).toLocaleString()}
+                </div>
+              )}
             </div>
+
+            {/* Trend metrics */}
+            {trendMetrics && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.1em', marginBottom: 8 }}>
+                  TREND GATE
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <ValueMetric label="Pc Peak" value={trendMetrics.pc_peak.toExponential(2)} />
+                  <ValueMetric label="Pc Slope" value={trendMetrics.pc_slope.toExponential(2)} />
+                  <ValueMetric label="Stability" value={`${(trendMetrics.pc_stability * 100).toFixed(0)}%`} />
+                  <ValueMetric label="Samples" value={`${trendMetrics.sample_count}`} />
+                </div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 10, marginTop: 8 }}>
+                  {trendMetrics.gate_reason}
+                </div>
+              </div>
+            )}
+
+            {/* Maneuver plan */}
+            {maneuverPlan && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.1em', marginBottom: 8 }}>
+                  MANEUVER PLAN
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <ValueMetric label="Direction" value={maneuverPlan.direction ?? '-'} />
+                  <ValueMetric label="Delta-V" value={maneuverPlan.delta_v_mps != null ? `${maneuverPlan.delta_v_mps.toFixed(3)} m/s` : '-'} color="var(--red)" />
+                  <ValueMetric label="Burn Time" value={maneuverPlan.burn_time_utc ? new Date(maneuverPlan.burn_time_utc).toLocaleTimeString() : '-'} />
+                  <ValueMetric label="Early/Late" value={maneuverPlan.early_vs_late_ratio != null ? `${maneuverPlan.early_vs_late_ratio.toFixed(2)}x` : '-'} />
+                </div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 10, marginTop: 8 }}>
+                  {maneuverPlan.notes}
+                </div>
+              </div>
+            )}
 
             {/* Confidence */}
             <div style={{ marginBottom: 16 }}>

@@ -19,7 +19,7 @@ from packages.telemetry.phoenix import format_trace_ids, get_tracer
 LOGGER = logging.getLogger(__name__)
 TRACER = get_tracer(__name__)
 
-_DECISIONS = {"IGNORE", "INSURE", "MANEUVER"}
+_DECISIONS = {"IGNORE", "INSURE", "MANEUVER", "DEFER"}
 
 
 def _clean_env_key(name: str) -> str:
@@ -76,7 +76,15 @@ def _extract_json_substring(text: str) -> Optional[str]:
     return text[start : end + 1]
 
 
-def _fallback_policy(expected_loss_usd: float, premium_quote_usd: float, maneuver_cost_usd: float) -> str:
+def _fallback_policy(
+    expected_loss_usd: float,
+    premium_quote_usd: float,
+    maneuver_cost_usd: float,
+    trend_mode_hint: Optional[str] = None,
+) -> str:
+    hint = str(trend_mode_hint or "").upper().strip()
+    if hint in _DECISIONS:
+        return hint
     premium_ref = max(premium_quote_usd, 1e-9)
     if expected_loss_usd >= premium_ref * 3.0:
         return "INSURE"
@@ -91,8 +99,9 @@ def _fallback_decision(
     premium_quote_usd: float,
     maneuver_cost_usd: float,
     reason: str,
+    trend_mode_hint: Optional[str] = None,
 ) -> Dict[str, Any]:
-    decision = _fallback_policy(expected_loss_usd, premium_quote_usd, maneuver_cost_usd)
+    decision = _fallback_policy(expected_loss_usd, premium_quote_usd, maneuver_cost_usd, trend_mode_hint=trend_mode_hint)
     return {
         "decision": decision,
         "expected_loss_usd": float(expected_loss_usd),
@@ -141,14 +150,17 @@ def _build_prompt(event: Dict[str, Any], economics: Dict[str, float]) -> str:
             "premium_quote_usd": economics["premium_quote_usd"],
             "maneuver_cost_usd": economics["maneuver_cost_usd"],
         },
+        "trend_context": economics.get("trend_context"),
+        "maneuver_plan": economics.get("maneuver_plan"),
         "instructions": [
-            "Choose exactly one decision: IGNORE, INSURE, or MANEUVER.",
+            "Choose exactly one decision: IGNORE, INSURE, MANEUVER, or DEFER.",
+            "Do not perform arithmetic; treat provided economics and trend metrics as authoritative.",
             "You must return strict JSON only with no markdown fences.",
             "Keep rationale concise and practical for an orbital operations operator.",
             "Confidence must be between 0 and 1.",
         ],
         "response_schema": {
-            "decision": "IGNORE|INSURE|MANEUVER",
+            "decision": "IGNORE|INSURE|MANEUVER|DEFER",
             "expected_loss_usd": "number",
             "var_usd": "number",
             "confidence": "number_0_to_1",
@@ -304,7 +316,7 @@ def _normalize_decision(
 
 
 def decide(event: Dict[str, Any], asset_ctx: Dict[str, Any], cost_ctx: Dict[str, Any]) -> Dict[str, Any]:
-    """Decide IGNORE/INSURE/MANEUVER using Claude, Gemini, or deterministic fallback."""
+    """Decide IGNORE/DEFER/INSURE/MANEUVER using Claude, Gemini, or deterministic fallback."""
 
     p_collision = _safe_float(event.get("p_collision", event.get("pc_assumed", 0.0)))
     miss_distance_m = _safe_float(event.get("miss_distance_m", 0.0))
@@ -312,6 +324,7 @@ def decide(event: Dict[str, Any], asset_ctx: Dict[str, Any], cost_ctx: Dict[str,
     asset_value_usd = _safe_float(asset_ctx.get("asset_value_usd", 0.0))
     premium_quote_usd = _safe_float(cost_ctx.get("premium_quote_usd", 0.0))
     maneuver_cost_usd = _safe_float(cost_ctx.get("maneuver_cost_usd", 0.0))
+    trend_mode_hint = str(cost_ctx.get("trend_mode_hint", "")).upper().strip()
 
     raw_expected_loss_usd = float(p_collision * asset_value_usd)
     expected_loss_usd = _safe_float(cost_ctx.get("expected_loss_adjusted_usd"), raw_expected_loss_usd)
@@ -328,6 +341,8 @@ def decide(event: Dict[str, Any], asset_ctx: Dict[str, Any], cost_ctx: Dict[str,
         "expected_loss_usd": expected_loss_usd,
         "premium_quote_usd": premium_quote_usd,
         "maneuver_cost_usd": maneuver_cost_usd,
+        "trend_context": cost_ctx.get("trend_metrics"),
+        "maneuver_plan": cost_ctx.get("maneuver_plan"),
     }
     prompt = _build_prompt(event, economics)
 
@@ -346,6 +361,7 @@ def decide(event: Dict[str, Any], asset_ctx: Dict[str, Any], cost_ctx: Dict[str,
             premium_quote_usd=premium_quote_usd,
             maneuver_cost_usd=maneuver_cost_usd,
             reason="No ANTHROPIC_API_KEY or GEMINI_API_KEY configured.",
+            trend_mode_hint=trend_mode_hint,
         )
         llm_observability = build_llm_observability(
             provider="fallback",
@@ -403,6 +419,7 @@ def decide(event: Dict[str, Any], asset_ctx: Dict[str, Any], cost_ctx: Dict[str,
             premium_quote_usd=premium_quote_usd,
             maneuver_cost_usd=maneuver_cost_usd,
             reason=f"Provider failure: {type(err).__name__}: {err}",
+            trend_mode_hint=trend_mode_hint,
         )
         llm_observability = build_llm_observability(
             provider="fallback",

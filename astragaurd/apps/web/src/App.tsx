@@ -21,6 +21,13 @@ type RawConjunctionEvent = Partial<ConjunctionEvent> & {
   secondary_id?: number
   risk_score?: number
   p_collision?: number
+  decision_mode_hint?: string | null
+  defer_until_utc?: string | null
+  trend_pc_peak?: number | null
+  trend_pc_slope?: number | null
+  trend_pc_stability?: number | null
+  plan_delta_v_mps?: number | null
+  plan_burn_time_utc?: string | null
 }
 
 function toFiniteNumber(value: unknown, fallback: number): number {
@@ -89,6 +96,15 @@ function normalizeConjunctionEvents(rawEvents: unknown[], snapshot: CesiumSnapsh
         pc_assumed: probability,
         risk_tier: riskTier,
         tca_index_snapshot: toFiniteNumber(event.tca_index_snapshot, 0),
+        decision_mode_hint: (typeof event.decision_mode_hint === 'string'
+          ? event.decision_mode_hint.toUpperCase()
+          : null) as ConjunctionEvent['decision_mode_hint'],
+        defer_until_utc: typeof event.defer_until_utc === 'string' ? event.defer_until_utc : null,
+        trend_pc_peak: event.trend_pc_peak ?? null,
+        trend_pc_slope: event.trend_pc_slope ?? null,
+        trend_pc_stability: event.trend_pc_stability ?? null,
+        plan_delta_v_mps: event.plan_delta_v_mps ?? null,
+        plan_burn_time_utc: typeof event.plan_burn_time_utc === 'string' ? event.plan_burn_time_utc : null,
       } satisfies ConjunctionEvent
     })
     .filter((event) => event.event_id.length > 0)
@@ -118,7 +134,7 @@ export default function App() {
 
         setLoadingMessage('Loading orbits and conjunctions...')
         const [conjData, snapData] = await Promise.all([
-          getTopConjunctions(),
+          getTopConjunctions(true),
           getCesiumSnapshot(),
         ])
         if (cancelled) return

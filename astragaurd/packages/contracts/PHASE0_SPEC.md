@@ -19,11 +19,21 @@ This file is the implementation-side lock for cross-layer boundaries.
 8. `data/processed/artifacts_latest.json` is the canonical latest locator.
 
 ## Decision Enum
-`IGNORE | MONITOR | INSURE | MANEUVER`
+`IGNORE | MONITOR | INSURE | MANEUVER | DEFER`
 
 ## Artifact Paths
 - `data/processed/top_conjunctions.json`
 - `data/processed/top_conjunctions.csv`
 - `data/processed/cesium_orbits_snapshot.json`
+- `data/processed/maneuver_plans.json`
 - `data/processed/artifacts_latest.json`
 - `data/processed/autonomy_run_result_latest.json` (written by API loop)
+
+## Addendum (Schema 1.1)
+- API accepts request `schema_version` values `1.0.0` and `1.1.0`.
+- `GET /artifacts/top-conjunctions?include_plans=1` appends nullable plan summary fields.
+- `POST /run-autonomy-loop` may return optional:
+  - `decision_mode`
+  - `trend_metrics`
+  - `defer_until_utc`
+  - `maneuver_plan`

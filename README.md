@@ -183,7 +183,9 @@ npm run dev
 
 - `GET /artifacts/latest`
 - `GET /artifacts/top-conjunctions`
+- `GET /artifacts/top-conjunctions?include_plans=1`
 - `GET /artifacts/cesium-snapshot`
+- `GET /artifacts/maneuver-plans`
 - `POST /run-autonomy-loop`
 
 Frontend uses Vite proxy `/api -> http://localhost:8000`.
@@ -194,6 +196,7 @@ Frontend uses Vite proxy `/api -> http://localhost:8000`.
 - `astragaurd/data/processed/top_conjunctions.json`
 - `astragaurd/data/processed/top_conjunctions.csv`
 - `astragaurd/data/processed/cesium_orbits_snapshot.json`
+- `astragaurd/data/processed/maneuver_plans.json`
 - `astragaurd/data/processed/artifacts_latest.json`
 - `astragaurd/data/processed/autonomy_run_result_latest.json`
 - `astragaurd/data/processed/telemetry_events.jsonl`
@@ -229,6 +232,22 @@ Defined in `astragaurd/packages/contracts/PHASE0_SPEC.md`.
 - `ASTRA_ASSET_VALUE_ACTIVE_USD` (default `200000000`)
 - `ASTRA_ASSET_VALUE_DEBRIS_USD` (default `1000000`)
 - `ASTRA_MANEUVER_COST_USD` (default `5000`)
+
+### Trend gate + maneuver planning
+
+- `ASTRA_TREND_WINDOW_MINUTES` (default `30`)
+- `ASTRA_TREND_CADENCE_SECONDS` (default `60`)
+- `ASTRA_TREND_THRESHOLD` (default `1e-5`)
+- `ASTRA_TREND_DEFER_HOURS` (default `24`)
+- `ASTRA_TREND_CRITICAL_OVERRIDE` (default `1e-3`)
+- `ASTRA_COV_MODEL` (`legacy` or `anisotropic_rtn`, default `anisotropic_rtn`)
+- `ASTRA_SIGMA_BASE_PAYLOAD_R_M`, `ASTRA_SIGMA_BASE_PAYLOAD_T_M`, `ASTRA_SIGMA_BASE_PAYLOAD_N_M`
+- `ASTRA_SIGMA_BASE_DEBRIS_R_M`, `ASTRA_SIGMA_BASE_DEBRIS_T_M`, `ASTRA_SIGMA_BASE_DEBRIS_N_M`
+- `ASTRA_SIGMA_T_GROWTH_MPS` (default `0.02`)
+- `ASTRA_MISS_DISTANCE_TARGET_M` (default `1000`, runtime floor `max(1000, 3*hbr_m)`)
+- `ASTRA_MAX_DELTA_V_MPS` (default `0.5`)
+- `ASTRA_CANDIDATE_BURN_OFFSETS_H` (default `24,12,6,2`)
+- `ASTRA_LATE_BURN_MINUTES` (default `30`)
 
 ### Stripe / payments
 
@@ -281,9 +300,17 @@ cd astragaurd/apps/web
 npm run build
 ```
 
+### Deterministic trend+plan demo
+
+```bash
+cd astragaurd
+python scripts/demo_maneuver_reduction.py
+```
+
 ## Decision Modes
 
 - `IGNORE`: no payment action, monitor only
+- `DEFER`: postpone action and re-evaluate at `defer_until_utc`
 - `INSURE`: quote/enforce policy, then Stripe purchase path
 - `MANEUVER`: operational action path with configured maneuver cost
 

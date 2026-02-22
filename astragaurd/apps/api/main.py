@@ -8,7 +8,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -25,7 +25,7 @@ from packages.commerce import stripe_wallet  # noqa: E402
 from packages.earth.impact import compute_impact_score  # noqa: E402
 from packages.voice.elevenlabs import synthesize_speech  # noqa: E402
 from packages.contracts.manifest import ArtifactEntry, ArtifactsLatest  # noqa: E402
-from packages.contracts.versioning import AUTONOMY_MODEL_VERSION, SCHEMA_VERSION  # noqa: E402
+from packages.contracts.versioning import AUTONOMY_MODEL_VERSION, SCHEMA_VERSION, SUPPORTED_REQUEST_SCHEMA_VERSIONS  # noqa: E402
 from packages.telemetry.phoenix import init_tracing_if_enabled  # noqa: E402
 from packages.telemetry.service import emit_event  # noqa: E402
 from packages.telemetry.value_signals import append_ledger_record, compute_value_signal, update_ledger_summary  # noqa: E402
@@ -47,6 +47,7 @@ PROCESSED_DIR = REPO_ROOT / "data" / "processed"
 ARTIFACTS_LATEST_PATH = PROCESSED_DIR / "artifacts_latest.json"
 TOP_CONJUNCTIONS_PATH = PROCESSED_DIR / "top_conjunctions.json"
 CESIUM_SNAPSHOT_PATH = PROCESSED_DIR / "cesium_orbits_snapshot.json"
+MANEUVER_PLANS_PATH = PROCESSED_DIR / "maneuver_plans.json"
 
 
 def _load_dotenv_file(path: Path) -> None:
@@ -155,13 +156,14 @@ def _load_artifacts_latest() -> Dict[str, Any]:
 
 
 def _validate_request(payload: Dict[str, Any]) -> None:
-    if payload.get("schema_version") != SCHEMA_VERSION:
+    request_schema = str(payload.get("schema_version", "")).strip()
+    if request_schema not in SUPPORTED_REQUEST_SCHEMA_VERSIONS:
         raise HTTPException(
             status_code=422,
             detail={
                 "schema_version": SCHEMA_VERSION,
                 "error": "INVALID_REQUEST",
-                "details": ["schema_version mismatch"],
+                "details": [f"schema_version unsupported: {request_schema}"],
             },
         )
     providers = payload.get("providers") or {}
@@ -206,6 +208,43 @@ def _load_events_from_manifest(manifest: Dict[str, Any]) -> tuple[List[Dict[str,
     return events, top_path_str, snapshot_path_str
 
 
+def _load_maneuver_plans_from_manifest(manifest: Dict[str, Any]) -> Dict[str, Any]:
+    artifacts = manifest.get("artifacts") or {}
+    plans_path_str = (artifacts.get("maneuver_plans") or {}).get("path")
+    plans_path = _resolve_path(plans_path_str, "data/processed/maneuver_plans.json")
+    if not plans_path.exists():
+        return {}
+    payload = _read_json(plans_path)
+    plans = payload.get("plans_by_event_id")
+    if isinstance(plans, dict):
+        return plans
+    return {}
+
+
+def _compute_default_defer_until(tca_utc: str) -> Optional[str]:
+    try:
+        tca = datetime.fromisoformat(str(tca_utc).replace("Z", "+00:00")).astimezone(timezone.utc)
+    except Exception:
+        return None
+    now = datetime.now(timezone.utc)
+    defer_until = min(tca - timedelta(hours=12), now + timedelta(hours=6))
+    min_time = now + timedelta(minutes=10)
+    if defer_until < min_time:
+        defer_until = min_time
+    return defer_until.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _ensure_future_defer_until(raw_defer_until_utc: Optional[str], tca_utc: str) -> Optional[str]:
+    if raw_defer_until_utc:
+        try:
+            defer_dt = datetime.fromisoformat(str(raw_defer_until_utc).replace("Z", "+00:00")).astimezone(timezone.utc)
+            if defer_dt >= datetime.now(timezone.utc) + timedelta(minutes=10):
+                return defer_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        except Exception:
+            pass
+    return _compute_default_defer_until(tca_utc)
+
+
 def _select_event(events: List[Dict[str, Any]], target_event_id: Optional[str], event_index: int) -> Dict[str, Any]:
     if target_event_id:
         for event in events:
@@ -247,6 +286,8 @@ def _decision_actions(decision: str) -> List[str]:
         return ["execute_insurance_purchase", "monitor_24h"]
     if decision == "MANEUVER":
         return ["schedule_maneuver", "monitor_24h"]
+    if decision == "DEFER":
+        return ["defer_and_rerun", "monitor_6h"]
     return ["no_action"]
 
 
@@ -285,12 +326,34 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
 
     latest_manifest = _load_artifacts_latest()
     events, top_path_str, snapshot_path_str = _load_events_from_manifest(latest_manifest)
+    plans_path_str = ((latest_manifest.get("artifacts") or {}).get("maneuver_plans") or {}).get("path")
+    plans_by_event_id = _load_maneuver_plans_from_manifest(latest_manifest)
     target_event_id = payload.get("target_event_id")
     selected_event = _select_event(events, target_event_id, event_index)
     LOGGER.info("Autonomy run started (event_index=%s, target_event_id=%s)", event_index, target_event_id)
 
     run_id = "RUN-" + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     event_id = str(selected_event.get("event_id"))
+    plan_entry = plans_by_event_id.get(event_id) if isinstance(plans_by_event_id, dict) else None
+    if not isinstance(plan_entry, dict):
+        plan_entry = {}
+    trend_metrics = plan_entry.get("trend_metrics")
+    if not isinstance(trend_metrics, dict):
+        trend_metrics = {}
+    maneuver_plan = plan_entry.get("maneuver_plan")
+    if not isinstance(maneuver_plan, dict):
+        maneuver_plan = None
+    decision_mode_hint = str(plan_entry.get("decision_mode_hint", "")).upper().strip() or "IGNORE"
+    if decision_mode_hint not in {"IGNORE", "DEFER", "MANEUVER"}:
+        decision_mode_hint = "IGNORE"
+    defer_until_utc = plan_entry.get("defer_until_utc")
+    if decision_mode_hint == "DEFER" and not defer_until_utc:
+        defer_until_utc = _compute_default_defer_until(str(selected_event.get("tca_utc", "")))
+    if decision_mode_hint == "DEFER":
+        defer_until_utc = _ensure_future_defer_until(
+            raw_defer_until_utc=defer_until_utc,
+            tca_utc=str(selected_event.get("tca_utc", "")),
+        )
     p_collision = _safe_float(selected_event.get("p_collision", selected_event.get("pc_assumed", 0.0)), 0.0)
     miss_distance_m = _safe_float(selected_event.get("miss_distance_m", 0.0), 0.0)
     relative_speed_mps = _safe_float(selected_event.get("relative_speed_mps", 0.0), 0.0)
@@ -327,15 +390,42 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
             "maneuver_cost_usd": maneuver_cost_usd,
             "raw_expected_loss_usd": raw_expected_loss,
             "expected_loss_adjusted_usd": expected_loss_adjusted,
+            "trend_metrics": trend_metrics,
+            "maneuver_plan": maneuver_plan,
+            "trend_mode_hint": decision_mode_hint,
         },
     )
-    decision = str(decision_obj.get("decision", "IGNORE")).upper().strip()
-    if decision not in {"IGNORE", "INSURE", "MANEUVER"}:
-        LOGGER.warning("Unexpected decision value from consultant: %s", decision)
-        decision = "IGNORE"
-        decision_obj["decision"] = "IGNORE"
-        decision_obj["rationale"] = ["Backend normalized unsupported decision to IGNORE."]
-        decision_obj["llm_provider"] = "fallback"
+    llm_recommendation = str(decision_obj.get("decision", "IGNORE")).upper().strip()
+    if llm_recommendation not in {"IGNORE", "INSURE", "MANEUVER", "DEFER"}:
+        LOGGER.warning("Unexpected decision value from consultant: %s", llm_recommendation)
+        llm_recommendation = "IGNORE"
+
+    decision_mode = decision_mode_hint
+    decision_reason_code = str(plan_entry.get("gate_reason_code", trend_metrics.get("gate_reason_code", "NO_PLAN_DATA")))
+    decision_reason_text = str(plan_entry.get("gate_reason", trend_metrics.get("gate_reason", "No maneuver plan artifact data available.")))
+    if decision_mode == "MANEUVER":
+        if not maneuver_plan:
+            decision_mode = "DEFER"
+            defer_until_utc = defer_until_utc or _compute_default_defer_until(str(selected_event.get("tca_utc", "")))
+            decision_reason_code = "PLANNER_MISSING"
+            decision_reason_text = "Maneuver-eligible trend but planner data missing; deferring for re-evaluation."
+        elif str(maneuver_plan.get("feasibility", "infeasible")).lower() != "feasible":
+            decision_mode = "DEFER"
+            defer_until_utc = defer_until_utc or _compute_default_defer_until(str(selected_event.get("tca_utc", "")))
+            decision_reason_code = "PLANNER_INFEASIBLE"
+            decision_reason_text = "Maneuver plan exceeds delta-v cap; deferring for re-evaluation."
+
+    decision = decision_mode
+    decision_obj["decision"] = decision
+    decision_obj["decision_mode"] = decision_mode
+    decision_obj["llm_recommendation"] = llm_recommendation
+    decision_obj["llm_disagreed_with_guardrail"] = bool(llm_recommendation != decision_mode)
+    decision_obj["decision_mode_hint"] = decision_mode_hint
+    decision_obj["decision_reason_code"] = decision_reason_code
+    decision_obj["decision_reason_text"] = decision_reason_text
+    decision_obj["trend_metrics"] = trend_metrics
+    decision_obj["defer_until_utc"] = defer_until_utc
+    decision_obj["maneuver_plan"] = maneuver_plan
     expected_loss_usd = _safe_float(decision_obj.get("expected_loss_usd"), expected_loss_adjusted)
     decision_obj["expected_loss_usd"] = expected_loss_usd
     decision_obj["var_usd"] = _safe_float(decision_obj.get("var_usd"), expected_loss_usd)
@@ -403,6 +493,18 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
         }
         LOGGER.info("MANEUVER action selected cost=%.2f", maneuver_cost_usd)
         cost_usd = maneuver_cost_usd
+    elif decision == "DEFER":
+        payment_obj = {
+            "provider": "stripe",
+            "status": "N/A",
+            "mode": "defer",
+            "amount_usd": 0.0,
+            "currency": stripe_currency,
+            "id": None,
+            "checkout_url": None,
+        }
+        LOGGER.info("DEFER action selected defer_until=%s", defer_until_utc)
+        cost_usd = 0.0
     else:
         payment_obj = {
             "provider": "stripe",
@@ -534,6 +636,10 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
         },
         "earth_impact": impact_result,
         "expected_loss_adjusted_usd": expected_loss_adjusted,
+        "decision_mode": decision_mode,
+        "trend_metrics": trend_metrics,
+        "defer_until_utc": defer_until_utc,
+        "maneuver_plan": maneuver_plan,
         "voice": {
             "provider": voice_result.get("provider", providers.get("voice", "elevenlabs")),
             "status": voice_result.get("status", "skipped"),
@@ -543,6 +649,7 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
         "refs": {
             "top_conjunctions_path": str(top_path_str),
             "cesium_snapshot_path": str(snapshot_path_str),
+            "maneuver_plans_path": str(plans_path_str) if plans_path_str else None,
         },
         "ledger": {
             "path": str(ledger_path),
@@ -597,10 +704,42 @@ def get_artifacts_latest() -> Dict[str, Any]:
 
 
 @app.get("/artifacts/top-conjunctions")
-def get_top_conjunctions() -> Dict[str, Any]:
+def get_top_conjunctions(include_plans: int = Query(0, ge=0, le=1)) -> Dict[str, Any]:
     if not TOP_CONJUNCTIONS_PATH.exists():
         raise HTTPException(status_code=404, detail={"schema_version": SCHEMA_VERSION, "error": "TOP_CONJUNCTIONS_NOT_FOUND"})
-    return _read_json(TOP_CONJUNCTIONS_PATH)
+    top_payload = _read_json(TOP_CONJUNCTIONS_PATH)
+    if int(include_plans) != 1:
+        return top_payload
+
+    manifest = _load_artifacts_latest()
+    plans_by_event_id = _load_maneuver_plans_from_manifest(manifest)
+    events = top_payload.get("events") or []
+    enriched_events: List[Dict[str, Any]] = []
+    for event in events:
+        event_payload = dict(event) if isinstance(event, dict) else {}
+        event_id = str(event_payload.get("event_id", ""))
+        plan_entry = plans_by_event_id.get(event_id) if isinstance(plans_by_event_id, dict) else None
+        if not isinstance(plan_entry, dict):
+            plan_entry = {}
+        trend_metrics = plan_entry.get("trend_metrics") if isinstance(plan_entry.get("trend_metrics"), dict) else {}
+        maneuver_plan = plan_entry.get("maneuver_plan") if isinstance(plan_entry.get("maneuver_plan"), dict) else {}
+        event_payload["decision_mode_hint"] = plan_entry.get("decision_mode_hint")
+        event_payload["defer_until_utc"] = plan_entry.get("defer_until_utc")
+        event_payload["trend_pc_peak"] = trend_metrics.get("pc_peak")
+        event_payload["trend_pc_slope"] = trend_metrics.get("pc_slope")
+        event_payload["trend_pc_stability"] = trend_metrics.get("pc_stability")
+        event_payload["plan_delta_v_mps"] = maneuver_plan.get("delta_v_mps")
+        event_payload["plan_burn_time_utc"] = maneuver_plan.get("burn_time_utc")
+        enriched_events.append(event_payload)
+    top_payload["events"] = enriched_events
+    return top_payload
+
+
+@app.get("/artifacts/maneuver-plans")
+def get_maneuver_plans() -> Dict[str, Any]:
+    if not MANEUVER_PLANS_PATH.exists():
+        raise HTTPException(status_code=404, detail={"schema_version": SCHEMA_VERSION, "error": "MANEUVER_PLANS_NOT_FOUND"})
+    return _read_json(MANEUVER_PLANS_PATH)
 
 
 @app.get("/artifacts/cesium-snapshot")

@@ -10,6 +10,13 @@ export interface ConjunctionEvent {
   pc_assumed: number
   risk_tier: string
   tca_index_snapshot: number
+  decision_mode_hint?: 'IGNORE' | 'DEFER' | 'MANEUVER' | null
+  defer_until_utc?: string | null
+  trend_pc_peak?: number | null
+  trend_pc_slope?: number | null
+  trend_pc_stability?: number | null
+  plan_delta_v_mps?: number | null
+  plan_burn_time_utc?: string | null
 }
 
 export interface TopConjunctionsArtifact {
@@ -43,7 +50,7 @@ export interface CesiumSnapshot {
 }
 
 // ── Autonomy loop ─────────────────────────────────────────────────────────────
-export type DecisionEnum = 'IGNORE' | 'MONITOR' | 'INSURE' | 'MANEUVER'
+export type DecisionEnum = 'IGNORE' | 'MONITOR' | 'INSURE' | 'MANEUVER' | 'DEFER'
 
 export interface VisionFinding {
   code: string
@@ -159,6 +166,33 @@ export interface VoiceResult {
 export interface ArtifactRefs {
   top_conjunctions_path: string
   cesium_snapshot_path: string
+  maneuver_plans_path?: string | null
+}
+
+export interface TrendMetrics {
+  pc_peak: number
+  pc_slope: number
+  pc_stability: number
+  window_minutes: number
+  cadence_seconds: number
+  sample_count: number
+  time_to_tca_hours: number
+  threshold: number
+  critical_override: number
+  gate_decision: string
+  gate_reason_code: string
+  gate_reason: string
+}
+
+export interface ManeuverPlan {
+  burn_time_utc: string | null
+  frame: string
+  direction: string | null
+  delta_v_mps: number | null
+  expected_miss_m: number
+  feasibility: string
+  early_vs_late_ratio: number | null
+  notes: string
 }
 
 export interface AutonomyRunResult {
@@ -187,6 +221,10 @@ export interface AutonomyRunResult {
   refs: ArtifactRefs
   earth_impact?: EarthImpact
   expected_loss_adjusted_usd?: number
+  decision_mode?: DecisionEnum
+  trend_metrics?: TrendMetrics
+  defer_until_utc?: string | null
+  maneuver_plan?: ManeuverPlan | null
   errors: string[]
   model_version: string
 }

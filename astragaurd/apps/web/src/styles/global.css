@@ -125,6 +125,7 @@ html, body, #root {
 }
 
 .badge-IGNORE  { color: var(--green);  border-color: rgba(46, 138, 102, 0.35); background: rgba(46, 138, 102, 0.1); }
+.badge-DEFER   { color: var(--yellow); border-color: rgba(155, 120, 7, 0.35); background: rgba(155, 120, 7, 0.1); }
 .badge-MONITOR { color: var(--yellow); border-color: rgba(155, 120, 7, 0.35); background: rgba(155, 120, 7, 0.1); }
 .badge-INSURE  { color: var(--orange); border-color: rgba(168, 102, 34, 0.35); background: rgba(168, 102, 34, 0.1); }
 .badge-MANEUVER{ color: var(--red);    border-color: rgba(176, 64, 63, 0.35); background: rgba(176, 64, 63, 0.1); }

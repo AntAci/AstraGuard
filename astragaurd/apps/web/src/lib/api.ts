@@ -24,12 +24,17 @@ export function getArtifactsLatest(): Promise<ArtifactsLatest> {
   return fetchJSON<ArtifactsLatest>('/api/artifacts/latest')
 }
 
-export function getTopConjunctions(): Promise<TopConjunctionsArtifact> {
-  return fetchJSON<TopConjunctionsArtifact>('/api/artifacts/top-conjunctions')
+export function getTopConjunctions(includePlans = false): Promise<TopConjunctionsArtifact> {
+  const suffix = includePlans ? '?include_plans=1' : ''
+  return fetchJSON<TopConjunctionsArtifact>(`/api/artifacts/top-conjunctions${suffix}`)
 }
 
 export function getCesiumSnapshot(): Promise<CesiumSnapshot> {
   return fetchJSON<CesiumSnapshot>('/api/artifacts/cesium-snapshot')
+}
+
+export function getManeuverPlans(): Promise<Record<string, unknown>> {
+  return fetchJSON<Record<string, unknown>>('/api/artifacts/maneuver-plans')
 }
 
 export function runAutonomyLoop(targetEventId: string | null): Promise<RunAutonomyLoopResponse> {
@@ -49,7 +54,7 @@ export function runAutonomyLoop(targetEventId: string | null): Promise<RunAutono
         voice: 'elevenlabs',
       },
       payment: { enabled: true, amount_usd: 0.0, currency: 'USD' },
-      schema_version: '1.0.0',
+      schema_version: '1.1.0',
     }),
   })
 }
