@@ -19,10 +19,9 @@ const useAnimatedNumber = (target: number, duration = 2000, decimals = 4) => {
 const OrbitalConsole = () => {
   const [mode, setMode] = useState<"INSURE" | "MANEUVER">("INSURE");
   const collisionProb = useAnimatedNumber(0.0037, 2200, 6);
-  const var95 = useAnimatedNumber(12847.32, 2400, 2);
-  const policyBound = useAnimatedNumber(50000.0, 2000, 2);
-
-  const txHash = "7xKp...3fQm";
+  const missDistance = useAnimatedNumber(847.3, 2400, 1);
+  const deltaV = useAnimatedNumber(0.23, 2000, 3);
+  const maneuverCost = useAnimatedNumber(5000, 2600, 0);
 
   return (
     <div className="relative rounded-lg border border-border overflow-hidden" style={{ background: "var(--panel)" }}>
@@ -34,7 +33,7 @@ const OrbitalConsole = () => {
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
           <span className="text-xs font-mono font-semibold tracking-widest uppercase text-primary">
-            Live Orbital Risk Console
+            Autonomy Decision Console
           </span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -46,38 +45,32 @@ const OrbitalConsole = () => {
 
       {/* Readouts */}
       <div className="px-5 py-4 space-y-4">
-        <ReadoutRow label="COLLISION PROB" value={collisionProb} unit="%" variant="danger" />
-        <ReadoutRow label="VAR (95%)" value={`$${Number(var95).toLocaleString()}`} variant="warn" />
-        <ReadoutRow label="POLICY BOUND" value={`$${Number(policyBound).toLocaleString()}`} variant="accent" />
-        <ReadoutRow label="TX HASH" value={txHash} variant="muted" mono />
+        <ReadoutRow label="COLLISION PROB (Pc)" value={collisionProb} unit="%" variant="danger" />
+        <ReadoutRow label="MISS DISTANCE" value={`${Number(missDistance).toLocaleString()} m`} variant="warn" />
+        <ReadoutRow label="MIN Δv REQUIRED" value={`${deltaV} m/s`} variant="accent" />
+        <ReadoutRow label="MANEUVER COST" value={`$${Number(maneuverCost).toLocaleString()}`} variant="muted" />
 
-        {/* Mode toggle */}
+        {/* Decision mode display */}
         <div className="flex items-center gap-3 pt-2">
-          <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Mode</span>
-          <button
-            onClick={() => setMode(mode === "INSURE" ? "MANEUVER" : "INSURE")}
-            className="relative flex items-center w-[180px] h-8 rounded-md border border-border overflow-hidden transition-colors"
-            style={{ background: "rgba(var(--accent-raw), 0.05)" }}
-          >
-            <span
-              className="absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded bg-primary transition-all duration-300 ease-out"
-              style={{ left: mode === "INSURE" ? "2px" : "calc(50% + 2px)" }}
-            />
-            <span
-              className={`relative z-10 flex-1 text-center text-xs font-mono font-semibold uppercase tracking-wider transition-colors duration-300 ${
-                mode === "INSURE" ? "text-primary-foreground" : "text-muted-foreground"
-              }`}
-            >
-              Insure
-            </span>
-            <span
-              className={`relative z-10 flex-1 text-center text-xs font-mono font-semibold uppercase tracking-wider transition-colors duration-300 ${
-                mode === "MANEUVER" ? "text-primary-foreground" : "text-muted-foreground"
-              }`}
-            >
-              Maneuver
-            </span>
-          </button>
+          <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Decision</span>
+          <div className="flex items-center gap-1.5">
+            {(["IGNORE", "DEFER", "INSURE", "MANEUVER"] as const).map((d) => (
+              <button
+                key={d}
+                onClick={() => setMode(d === "INSURE" || d === "MANEUVER" ? d : mode)}
+                className={`px-2.5 py-1 rounded text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all duration-200 ${(d === "INSURE" && mode === "INSURE") || (d === "MANEUVER" && mode === "MANEUVER")
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : d === "IGNORE"
+                      ? "border-primary/20 text-primary/40"
+                      : d === "DEFER"
+                        ? "border-warn/20 text-warn/40"
+                        : "border-border text-muted-foreground hover:border-primary/40"
+                  }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

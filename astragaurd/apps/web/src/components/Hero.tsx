@@ -27,12 +27,12 @@ const Hero = () => {
           >
             <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
             <span className="text-xs font-mono tracking-widest uppercase text-primary">
-              Systems Online
+              44,870+ Objects Tracked
             </span>
           </motion.div>
 
           <div className="flex flex-col gap-4">
-            {["Autonomous", "Orbital Risk.", "Financially", "Executed."].map(
+            {["Autonomous", "Maneuver-Tax", "Optimization."].map(
               (word, i) => (
                 <motion.span
                   key={word}
@@ -54,9 +54,34 @@ const Hero = () => {
             transition={{ duration: 0.5, delay: 0.8 }}
             className="max-w-lg text-sm md:text-base font-mono text-muted-foreground leading-relaxed"
           >
-            AstraGuard monitors 20,000+ objects, forecasts collisions 72 hours
-            out, and binds micro-insurance or maneuvers—automatically.
+            AstraGuard screens 44,870+ tracked objects, forecasts conjunctions
+            72 hours out, and runs a deterministic decision loop—IGNORE, DEFER,
+            INSURE, or MANEUVER—to minimize recurring operations cost with
+            auditable economics.
           </motion.p>
+
+          {/* Stats row */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.9 }}
+            className="flex flex-wrap gap-6"
+          >
+            {[
+              { value: "72h", label: "Forecast Horizon" },
+              { value: "4", label: "Decision Modes" },
+              { value: "<0.5 m/s", label: "Max Δv Budget" },
+            ].map((stat) => (
+              <div key={stat.label} className="flex flex-col">
+                <span className="text-lg font-display font-bold text-primary">
+                  {stat.value}
+                </span>
+                <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
+                  {stat.label}
+                </span>
+              </div>
+            ))}
+          </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -65,12 +90,17 @@ const Hero = () => {
             className="flex flex-wrap gap-4"
           >
             <Link to="/app" className="group relative px-7 py-3 rounded-md bg-primary text-primary-foreground font-display font-semibold text-sm tracking-wide uppercase transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_30px_rgba(var(--accent-raw),0.35)]">
-              Launch Mission Control
+              Open Mission Control
               <span className="absolute inset-0 rounded-md bg-primary opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-300" />
             </Link>
-            <button className="px-7 py-3 rounded-md border border-border text-foreground font-display font-semibold text-sm tracking-wide uppercase transition-all duration-300 hover:border-primary hover:text-primary hover:-translate-y-0.5 hover:shadow-[0_0_20px_rgba(var(--accent-raw),0.15)]">
-              View Risk Receipts (On-Chain)
-            </button>
+            <a
+              href="https://github.com/AntAci/Antlikeswinninghackeurope"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-7 py-3 rounded-md border border-border text-foreground font-display font-semibold text-sm tracking-wide uppercase transition-all duration-300 hover:border-primary hover:text-primary hover:-translate-y-0.5 hover:shadow-[0_0_20px_rgba(var(--accent-raw),0.15)]"
+            >
+              View on GitHub
+            </a>
           </motion.div>
 
           <motion.p
@@ -79,9 +109,11 @@ const Hero = () => {
             transition={{ duration: 0.5, delay: 1.2 }}
             className="text-xs font-mono text-muted-foreground"
           >
-            Built for{" "}
-            <span className="text-primary">Solana</span> +{" "}
-            <span className="text-warn">Stripe</span> agentic commerce.
+            Powered by{" "}
+            <span className="text-primary">SGP4 Propagation</span> ·{" "}
+            <span className="text-primary">Claude + Gemini</span> ·{" "}
+            <span className="text-warn">Stripe</span> ·{" "}
+            <span className="text-primary">Solana</span>
           </motion.p>
         </div>
 
