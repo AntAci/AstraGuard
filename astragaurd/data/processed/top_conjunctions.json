@@ -1,0 +1,164 @@
+{
+  "generated_at_utc": "2026-02-22T01:02:17Z",
+  "event_count": 5,
+  "events": [
+    {
+      "event_id": "EVT-28252-28378-2026-02-24T14:31:17Z",
+      "primary_id": 28252,
+      "secondary_id": 28378,
+      "tca_utc": "2026-02-24T14:31:17Z",
+      "tca_index_snapshot": 123,
+      "miss_distance_m": 5908.417710585183,
+      "relative_speed_mps": 159.39425158850298,
+      "pc_assumed": 1.0193879582362139e-97,
+      "risk_score": 1.0193879582362139e-97,
+      "window_start_utc": "2026-02-24T14:12:17Z",
+      "window_end_utc": "2026-02-24T14:52:17Z",
+      "model_version": "step2_v1_assumed_covariance",
+      "assumptions": {
+        "dt_s": 600,
+        "dt_refine_s": 60,
+        "horizon_hours": 72.0,
+        "hard_body_radius_m": 25.0,
+        "sigma_payload_m": 200.0,
+        "sigma_debris_m": 500.0,
+        "voxel_km": 50.0,
+        "catalog_groups_used": [
+          "ACTIVE",
+          "COSMOS-1408-DEBRIS",
+          "FENGYUN-1C-DEBRIS",
+          "IRIDIUM-33-DEBRIS",
+          "COSMOS-2251-DEBRIS"
+        ]
+      },
+      "schema_version": "1.0.0"
+    },
+    {
+      "event_id": "EVT-27640-29522-2026-02-23T15:32:17Z",
+      "primary_id": 27640,
+      "secondary_id": 29522,
+      "tca_utc": "2026-02-23T15:32:17Z",
+      "tca_index_snapshot": 77,
+      "miss_distance_m": 45091.61761807458,
+      "relative_speed_mps": 33.222030112899475,
+      "pc_assumed": 0.0,
+      "risk_score": 0.0,
+      "window_start_utc": "2026-02-23T15:12:17Z",
+      "window_end_utc": "2026-02-23T15:52:17Z",
+      "model_version": "step2_v1_assumed_covariance",
+      "assumptions": {
+        "dt_s": 600,
+        "dt_refine_s": 60,
+        "horizon_hours": 72.0,
+        "hard_body_radius_m": 25.0,
+        "sigma_payload_m": 200.0,
+        "sigma_debris_m": 500.0,
+        "voxel_km": 50.0,
+        "catalog_groups_used": [
+          "ACTIVE",
+          "COSMOS-1408-DEBRIS",
+          "FENGYUN-1C-DEBRIS",
+          "IRIDIUM-33-DEBRIS",
+          "COSMOS-2251-DEBRIS"
+        ]
+      },
+      "schema_version": "1.0.0"
+    },
+    {
+      "event_id": "EVT-27426-28935-2026-02-24T14:11:17Z",
+      "primary_id": 27426,
+      "secondary_id": 28935,
+      "tca_utc": "2026-02-24T14:11:17Z",
+      "tca_index_snapshot": 122,
+      "miss_distance_m": 47593.26211861546,
+      "relative_speed_mps": 248.52240885727713,
+      "pc_assumed": 0.0,
+      "risk_score": 0.0,
+      "window_start_utc": "2026-02-24T13:52:17Z",
+      "window_end_utc": "2026-02-24T14:32:17Z",
+      "model_version": "step2_v1_assumed_covariance",
+      "assumptions": {
+        "dt_s": 600,
+        "dt_refine_s": 60,
+        "horizon_hours": 72.0,
+        "hard_body_radius_m": 25.0,
+        "sigma_payload_m": 200.0,
+        "sigma_debris_m": 500.0,
+        "voxel_km": 50.0,
+        "catalog_groups_used": [
+          "ACTIVE",
+          "COSMOS-1408-DEBRIS",
+          "FENGYUN-1C-DEBRIS",
+          "IRIDIUM-33-DEBRIS",
+          "COSMOS-2251-DEBRIS"
+        ]
+      },
+      "schema_version": "1.0.0"
+    },
+    {
+      "event_id": "EVT-25757-27606-2026-02-23T21:42:17Z",
+      "primary_id": 25757,
+      "secondary_id": 27606,
+      "tca_utc": "2026-02-23T21:42:17Z",
+      "tca_index_snapshot": 89,
+      "miss_distance_m": 54748.1229240839,
+      "relative_speed_mps": 14758.434296151308,
+      "pc_assumed": 0.0,
+      "risk_score": 0.0,
+      "window_start_utc": "2026-02-23T21:22:17Z",
+      "window_end_utc": "2026-02-23T22:02:17Z",
+      "model_version": "step2_v1_assumed_covariance",
+      "assumptions": {
+        "dt_s": 600,
+        "dt_refine_s": 60,
+        "horizon_hours": 72.0,
+        "hard_body_radius_m": 25.0,
+        "sigma_payload_m": 200.0,
+        "sigma_debris_m": 500.0,
+        "voxel_km": 50.0,
+        "catalog_groups_used": [
+          "ACTIVE",
+          "COSMOS-1408-DEBRIS",
+          "FENGYUN-1C-DEBRIS",
+          "IRIDIUM-33-DEBRIS",
+          "COSMOS-2251-DEBRIS"
+        ]
+      },
+      "schema_version": "1.0.0"
+    },
+    {
+      "event_id": "EVT-27848-28370-2026-02-24T17:25:17Z",
+      "primary_id": 27848,
+      "secondary_id": 28370,
+      "tca_utc": "2026-02-24T17:25:17Z",
+      "tca_index_snapshot": 129,
+      "miss_distance_m": 56922.81525789913,
+      "relative_speed_mps": 95.25224765674737,
+      "pc_assumed": 0.0,
+      "risk_score": 0.0,
+      "window_start_utc": "2026-02-24T17:02:17Z",
+      "window_end_utc": "2026-02-24T17:42:17Z",
+      "model_version": "step2_v1_assumed_covariance",
+      "assumptions": {
+        "dt_s": 600,
+        "dt_refine_s": 60,
+        "horizon_hours": 72.0,
+        "hard_body_radius_m": 25.0,
+        "sigma_payload_m": 200.0,
+        "sigma_debris_m": 500.0,
+        "voxel_km": 50.0,
+        "catalog_groups_used": [
+          "ACTIVE",
+          "COSMOS-1408-DEBRIS",
+          "FENGYUN-1C-DEBRIS",
+          "IRIDIUM-33-DEBRIS",
+          "COSMOS-2251-DEBRIS"
+        ]
+      },
+      "schema_version": "1.0.0"
+    }
+  ],
+  "artifact_type": "top_conjunctions",
+  "model_version": "step2_v1_assumed_covariance",
+  "schema_version": "1.0.0"
+}

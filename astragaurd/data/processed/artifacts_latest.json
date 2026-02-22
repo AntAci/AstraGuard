@@ -1,0 +1,28 @@
+{
+  "generated_at_utc": "2026-02-22T01:06:33Z",
+  "latest_run_id": "RUN-20260222010633",
+  "artifacts": {
+    "top_conjunctions": {
+      "path": "data/processed/top_conjunctions.json",
+      "schema_version": "1.0.0",
+      "model_version": "step2_v1_assumed_covariance",
+      "sha256": "78f6d5661e8817dd6451b7e721bc9567676009b9898680851706e426d5a8b154",
+      "generated_at_utc": "2026-02-22T01:02:17Z"
+    },
+    "cesium_snapshot": {
+      "path": "data/processed/cesium_orbits_snapshot.json",
+      "schema_version": "1.0.0",
+      "model_version": "step2_v1_assumed_covariance",
+      "sha256": "04a462810189a7413593d04bd3a8130b86c6530b5f99d86ccc0bab6b3e9131a5",
+      "generated_at_utc": "2026-02-22T01:02:17Z"
+    },
+    "autonomy_run_result": {
+      "path": "data/processed/autonomy_run_result_latest.json",
+      "schema_version": "1.0.0",
+      "model_version": "autonomy_loop_v1",
+      "sha256": "117031e6c7bbbd4bbe6e5ff7ded2622f7c08093daa1387de12aac9dbe8e2dbc0",
+      "generated_at_utc": "2026-02-22T01:06:33Z"
+    }
+  },
+  "schema_version": "1.0.0"
+}

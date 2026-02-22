@@ -1,0 +1,48 @@
+{
+  "fetched_at_utc": "2026-02-21T23:58:42Z",
+  "groups": {
+    "ACTIVE": {
+      "parsed_records": 14408,
+      "sqlite_upserts": 14408,
+      "skipped_malformed": 0,
+      "skipped_no_data": false,
+      "fetch_ok": true,
+      "raw_file": "data/raw/tles_active_20260221T235842Z.tle"
+    },
+    "COSMOS-1408-DEBRIS": {
+      "parsed_records": 4,
+      "sqlite_upserts": 4,
+      "skipped_malformed": 0,
+      "skipped_no_data": false,
+      "fetch_ok": true,
+      "raw_file": "data/raw/tles_cosmos-1408-debris_20260221T235842Z.tle"
+    },
+    "FENGYUN-1C-DEBRIS": {
+      "parsed_records": 1853,
+      "sqlite_upserts": 1853,
+      "skipped_malformed": 0,
+      "skipped_no_data": false,
+      "fetch_ok": true,
+      "raw_file": "data/raw/tles_fengyun-1c-debris_20260221T235842Z.tle"
+    },
+    "IRIDIUM-33-DEBRIS": {
+      "parsed_records": 110,
+      "sqlite_upserts": 110,
+      "skipped_malformed": 0,
+      "skipped_no_data": false,
+      "fetch_ok": true,
+      "raw_file": "data/raw/tles_iridium-33-debris_20260221T235842Z.tle"
+    },
+    "COSMOS-2251-DEBRIS": {
+      "parsed_records": 583,
+      "sqlite_upserts": 583,
+      "skipped_malformed": 0,
+      "skipped_no_data": false,
+      "fetch_ok": true,
+      "raw_file": "data/raw/tles_cosmos-2251-debris_20260221T235842Z.tle"
+    }
+  },
+  "parsed_records": 16958,
+  "sqlite_upserts": 16958,
+  "skipped_malformed": 0
+}
