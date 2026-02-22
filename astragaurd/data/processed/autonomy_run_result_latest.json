@@ -1,8 +1,9 @@
 {
-  "run_id": "RUN-20260222030233",
+  "run_id": "RUN-20260222040848",
   "status": "completed",
-  "started_at_utc": "2026-02-22T03:02:33Z",
-  "completed_at_utc": "2026-02-22T03:02:33Z",
+  "run_at_utc": "2026-02-22T04:08:48Z",
+  "started_at_utc": "2026-02-22T04:08:48Z",
+  "completed_at_utc": "2026-02-22T04:08:56Z",
   "selected_event_id": "EVT-31698-36605-2026-02-23T10:46:46Z",
   "top_event_ids": [
     "EVT-31698-36605-2026-02-23T10:46:46Z",
@@ -11,73 +12,142 @@
     "EVT-29950-31055-2026-02-24T11:56:46Z",
     "EVT-31049-31293-2026-02-22T23:13:46Z"
   ],
-  "vision_report": {
-    "vision_report_id": "VR-20260222030233",
+  "event": {
     "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z",
-    "provider": "gemini-2.0-flash",
-    "model_version": "gemini-2.0-flash",
-    "status": "ok",
-    "confidence": 0.8,
-    "summary": "Phase-0 deterministic report placeholder.",
-    "findings": [
-      {
-        "code": "CLOSE_APPROACH_REVIEWED",
-        "severity": "medium",
-        "detail": "Event reviewed against current artifact set."
-      }
-    ],
-    "generated_at_utc": "2026-02-22T03:02:33Z",
+    "primary_id": 31698,
+    "secondary_id": 36605,
+    "tca_utc": "2026-02-23T10:46:46Z",
+    "tca_index_snapshot": 64,
+    "miss_distance_m": 89.6010670968533,
+    "relative_speed_mps": 0.4747342899038495,
+    "pc_assumed": 0.0037081981152816607,
+    "risk_score": 0.0037081981152816607,
+    "window_start_utc": "2026-02-23T10:26:46Z",
+    "window_end_utc": "2026-02-23T11:06:46Z",
+    "model_version": "step2_v1_assumed_covariance",
+    "assumptions": {
+      "dt_s": 600,
+      "dt_refine_s": 60,
+      "horizon_hours": 72.0,
+      "hard_body_radius_m": 25.0,
+      "sigma_payload_m": 200.0,
+      "sigma_debris_m": 500.0,
+      "voxel_km": 50.0,
+      "catalog_groups_used": [
+        "ACTIVE",
+        "COSMOS-1408-DEBRIS",
+        "FENGYUN-1C-DEBRIS",
+        "IRIDIUM-33-DEBRIS",
+        "COSMOS-2251-DEBRIS"
+      ]
+    },
     "schema_version": "1.0.0"
   },
-  "consultant_decision": {
-    "decision_id": "DEC-20260222030233",
-    "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z",
-    "provider": "claude-3-7-sonnet",
-    "model_version": "claude-3-7-sonnet",
-    "decision": "INSURE",
-    "confidence": 0.75,
-    "rationale": "Phase-0 deterministic policy using pc_assumed thresholds.",
-    "recommended_actions": [
-      "issue_policy_quote",
-      "monitor_6h"
+  "decision": {
+    "decision": "MANEUVER",
+    "expected_loss_usd": 741639.6230563321,
+    "var_usd": 741639.6230563321,
+    "confidence": 0.98,
+    "rationale": [
+      "Maneuver cost ($5,000) is significantly lower than both the insurance premium ($14,832.79) and the expected loss from collision ($741,639.62), making it the most cost-effective risk mitigation strategy."
     ],
-    "generated_at_utc": "2026-02-22T03:02:33Z",
+    "llm_provider": "gemini"
+  },
+  "payment": {
+    "provider": "stripe",
+    "status": "N/A",
+    "mode": "maneuver",
+    "amount_usd": 5000.0,
+    "currency": "usd",
+    "id": null,
+    "checkout_url": null
+  },
+  "premium_quote_usd": 14832.79,
+  "value_generated_usd": 741639.6230563321,
+  "cost_usd": 5000.0,
+  "roi": 148.3279246112664,
+  "narration_text": "Pc=0.0037082 miss=89.6m decision=MANEUVER premium=$14832.79 expected_loss=$741639.62 ROI=148.33x stripe_status=N/A",
+  "consultant_decision": {
+    "decision_id": "DEC-20260222040848",
+    "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z",
+    "provider": "gemini",
+    "model_version": "gemini-2.5-flash",
+    "decision": "MANEUVER",
+    "confidence": 0.98,
+    "rationale": "Maneuver cost ($5,000) is significantly lower than both the insurance premium ($14,832.79) and the expected loss from collision ($741,639.62), making it the most cost-effective risk mitigation strategy.",
+    "recommended_actions": [
+      "schedule_maneuver",
+      "monitor_24h"
+    ],
+    "generated_at_utc": "2026-02-22T04:08:56Z",
     "schema_version": "1.0.0"
   },
   "value_signal": {
-    "value_signal_id": "VAL-20260222030233",
+    "value_signal_id": "VAL-20260222040848",
     "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z",
     "provider": "paid_ai",
     "model_version": "paid_ai",
-    "estimated_loss_avoided_usd": 130176.36955314198,
-    "estimated_cost_usd": 25.0,
-    "roi_ratio": 5207.05478212568,
-    "confidence": 0.6,
-    "generated_at_utc": "2026-02-22T03:02:33Z",
+    "estimated_loss_avoided_usd": 741639.6230563321,
+    "estimated_cost_usd": 5000.0,
+    "intervention_cost_usd": 5000.0,
+    "roi_ratio": 148.3279246112664,
+    "confidence": 0.98,
+    "generated_at_utc": "2026-02-22T04:08:56Z",
     "schema_version": "1.0.0"
   },
   "payment_result": {
-    "payment_result_id": "PAY-20260222030233",
-    "decision_id": "DEC-20260222030233",
+    "payment_result_id": "PAY-20260222040848",
+    "decision_id": "DEC-20260222040848",
     "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z",
     "provider": "stripe",
-    "mode": "dry_run",
-    "status": "skipped",
-    "amount_usd": 25.0,
+    "mode": "maneuver",
+    "status": "N/A",
+    "amount_usd": 5000.0,
     "currency": "USD",
     "payment_intent_id": null,
-    "processed_at_utc": "2026-02-22T03:02:33Z",
+    "transaction_id": null,
+    "processed_at_utc": "2026-02-22T04:08:56Z",
+    "schema_version": "1.0.0"
+  },
+  "vision_report": {
+    "vision_report_id": "VR-20260222040848",
+    "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z",
+    "provider": "gemini-2.5-flash",
+    "model_version": "gemini-2.5-flash",
+    "status": "ok",
+    "confidence": 0.98,
+    "summary": "Phase 3 autonomy run used orbital economics and selected event artifacts.",
+    "findings": [
+      {
+        "code": "EVENT_SELECTED",
+        "severity": "medium",
+        "detail": "Selected event EVT-31698-36605-2026-02-23T10:46:46Z for closed-loop execution."
+      }
+    ],
+    "generated_at_utc": "2026-02-22T04:08:56Z",
     "schema_version": "1.0.0"
   },
   "voice": {
     "provider": "elevenlabs",
     "status": "queued",
     "audio_url": null,
-    "script_text": "Potential conjunction risk reviewed. Recommendation generated."
+    "script_text": "Pc=0.0037082 miss=89.6m decision=MANEUVER premium=$14832.79 expected_loss=$741639.62 ROI=148.33x stripe_status=N/A"
   },
   "refs": {
     "top_conjunctions_path": "data/processed/top_conjunctions.json",
     "cesium_snapshot_path": "data/processed/cesium_orbits_snapshot.json"
+  },
+  "ledger": {
+    "path": "/Users/antonioaciob/Desktop/Antlikeswinninghackeurope/astragaurd/data/processed/agent_ledger.jsonl",
+    "summary_path": "/Users/antonioaciob/Desktop/Antlikeswinninghackeurope/astragaurd/data/processed/agent_ledger_summary.json",
+    "summary": {
+      "runs": 5,
+      "total_cost_usd": 64331.16,
+      "total_value_usd": 3708198.1152816606,
+      "net_value_usd": 3643866.9552816604,
+      "avg_roi": 69.66559155924239,
+      "updated_at_utc": "2026-02-22T04:08:56Z"
+    }
   },
   "errors": [],
   "model_version": "autonomy_loop_v1",

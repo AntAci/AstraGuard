@@ -70,9 +70,12 @@ export interface ConsultantDecision {
   model_version: string
   decision: DecisionEnum
   confidence: number
-  rationale: string
+  rationale: string | string[]
   recommended_actions: string[]
   generated_at_utc: string
+  llm_provider?: 'claude' | 'gemini' | 'fallback'
+  expected_loss_usd?: number
+  var_usd?: number
 }
 
 export interface PaymentResult {
@@ -84,6 +87,11 @@ export interface PaymentResult {
   amount_usd: number
   currency: string
   transaction_id: string | null
+  payment_intent_id?: string | null
+  mode?: string
+  id?: string | null
+  checkout_url?: string | null
+  reason?: string
   processed_at_utc: string | null
 }
 
@@ -114,10 +122,20 @@ export interface ArtifactRefs {
 export interface AutonomyRunResult {
   run_id: string
   status: string
+  run_at_utc?: string
   started_at_utc: string
   completed_at_utc: string
   selected_event_id: string
   top_event_ids: string[]
+  event?: Record<string, unknown>
+  decision?: Record<string, unknown>
+  payment?: Record<string, unknown>
+  premium_quote_usd?: number
+  value_generated_usd?: number
+  cost_usd?: number
+  roi?: number
+  narration_text?: string
+  ledger?: Record<string, unknown>
   vision_report: VisionReport
   consultant_decision: ConsultantDecision
   value_signal: ValueSignal

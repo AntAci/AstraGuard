@@ -11,7 +11,19 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
   const decision = result?.result.consultant_decision
   const value = result?.result.value_signal
   const payment = result?.result.payment_result
+  const phase3Decision = result?.result.decision as
+    | { llm_provider?: string; expected_loss_usd?: number; rationale?: string[]; confidence?: number }
+    | undefined
+  const phase3Payment = result?.result.payment as
+    | { id?: string | null; checkout_url?: string | null; status?: string; mode?: string }
+    | undefined
   const voice = result?.result.voice
+  const narration = result?.result.narration_text
+  const decisionRationale = Array.isArray(decision?.rationale)
+    ? decision.rationale.join(' ')
+    : (decision?.rationale ?? '')
+  const provider = phase3Decision?.llm_provider ?? decision?.provider
+  const roiRatio = result?.result.roi ?? value?.roi_ratio ?? 0
 
   return (
     <div className="panel" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -76,13 +88,13 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.1em' }}>CONFIDENCE</span>
                 <span style={{ color: 'var(--cyan)', fontSize: 11 }}>
-                  {Math.round(decision.confidence * 100)}%
+                  {Math.round((phase3Decision?.confidence ?? decision.confidence) * 100)}%
                 </span>
               </div>
               <div className="confidence-bar-track">
                 <div
                   className="confidence-bar-fill"
-                  style={{ width: `${decision.confidence * 100}%` }}
+                  style={{ width: `${(phase3Decision?.confidence ?? decision.confidence) * 100}%` }}
                 />
               </div>
             </div>
@@ -93,7 +105,17 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                 RATIONALE
               </div>
               <div style={{ color: 'var(--text-primary)', fontSize: 11, lineHeight: 1.6 }}>
-                {decision.rationale}
+                {decisionRationale}
+              </div>
+            </div>
+
+            {/* Provider */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.1em', marginBottom: 6 }}>
+                MODEL PROVIDER
+              </div>
+              <div style={{ color: 'var(--cyan)', fontSize: 11 }}>
+                {(provider ?? 'fallback').toUpperCase()}
               </div>
             </div>
 
@@ -125,7 +147,7 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                   VALUE SIGNAL
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <ValueMetric label="ROI Ratio" value={`${(value.roi_ratio ?? 0).toFixed(1)}x`} color="var(--green)" />
+                  <ValueMetric label="ROI Ratio" value={`${roiRatio.toFixed(1)}x`} color="var(--green)" />
                   <ValueMetric label="Loss Avoided" value={`$${(((value.estimated_loss_avoided_usd ?? 0) as number) / 1000).toFixed(0)}K`} />
                   <ValueMetric
                     label="Cost"
@@ -158,6 +180,32 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                   <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
                     ${payment.amount_usd.toFixed(2)} {payment.currency}
                   </span>
+                </div>
+                {(phase3Payment?.id ?? payment.transaction_id ?? payment.payment_intent_id) && (
+                  <div style={{ color: 'var(--text-muted)', fontSize: 10, marginTop: 6 }}>
+                    ID: {phase3Payment?.id ?? payment.transaction_id ?? payment.payment_intent_id}
+                  </div>
+                )}
+                {phase3Payment?.checkout_url && (
+                  <a
+                    href={phase3Payment.checkout_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: 'var(--cyan)', fontSize: 10, marginTop: 6, display: 'inline-block' }}
+                  >
+                    Open Checkout Session
+                  </a>
+                )}
+              </div>
+            )}
+
+            {narration && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.1em', marginBottom: 6 }}>
+                  RUN NARRATION
+                </div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 11, lineHeight: 1.5 }}>
+                  {narration}
                 </div>
               </div>
             )}

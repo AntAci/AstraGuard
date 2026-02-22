@@ -38,17 +38,17 @@ export function runAutonomyLoop(targetEventId: string | null): Promise<RunAutono
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       request_id: `REQ-${Date.now()}`,
-      mode: 'dry_run',
+      mode: 'live',
       selection_strategy: 'top_risk',
       target_event_id: targetEventId ?? null,
       providers: {
         consultant: 'claude-3-7-sonnet',
-        vision: 'gemini-2.0-flash',
+        vision: 'gemini-2.5-flash',
         payments: 'stripe',
         value: 'paid_ai',
         voice: 'elevenlabs',
       },
-      payment: { enabled: false, amount_usd: 25.0, currency: 'USD' },
+      payment: { enabled: true, amount_usd: 0.0, currency: 'USD' },
       schema_version: '1.0.0',
     }),
   })

@@ -5,3 +5,8 @@
 {"event_type": "run_autonomy_loop.completed", "emitted_at_utc": "2026-02-22T02:58:36Z", "payload": {"run_id": "RUN-20260222025836", "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z"}}
 {"event_type": "run_autonomy_loop.completed", "emitted_at_utc": "2026-02-22T02:59:22Z", "payload": {"run_id": "RUN-20260222025922", "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z"}}
 {"event_type": "run_autonomy_loop.completed", "emitted_at_utc": "2026-02-22T03:02:33Z", "payload": {"run_id": "RUN-20260222030233", "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z"}}
+{"event_type": "run_autonomy_loop.completed", "emitted_at_utc": "2026-02-22T03:58:26Z", "payload": {"run_id": "RUN-20260222035826", "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z", "decision": "INSURE"}}
+{"event_type": "run_autonomy_loop.completed", "emitted_at_utc": "2026-02-22T03:59:58Z", "payload": {"run_id": "RUN-20260222035957", "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z", "decision": "INSURE"}}
+{"event_type": "run_autonomy_loop.completed", "emitted_at_utc": "2026-02-22T04:02:18Z", "payload": {"run_id": "RUN-20260222040217", "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z", "decision": "INSURE"}}
+{"event_type": "run_autonomy_loop.completed", "emitted_at_utc": "2026-02-22T04:06:13Z", "payload": {"run_id": "RUN-20260222040612", "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z", "decision": "INSURE"}}
+{"event_type": "run_autonomy_loop.completed", "emitted_at_utc": "2026-02-22T04:08:56Z", "payload": {"run_id": "RUN-20260222040848", "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z", "decision": "MANEUVER"}}
