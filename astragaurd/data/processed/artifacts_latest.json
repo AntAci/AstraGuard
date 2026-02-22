@@ -1,6 +1,6 @@
 {
-  "generated_at_utc": "2026-02-22T09:57:55Z",
-  "latest_run_id": "RUN-20260222095741",
+  "generated_at_utc": "2026-02-22T10:25:13Z",
+  "latest_run_id": "RUN-20260222102502",
   "artifacts": {
     "top_conjunctions": {
       "path": "data/processed/top_conjunctions.json",
@@ -27,8 +27,8 @@
       "path": "data/processed/autonomy_run_result_latest.json",
       "schema_version": "1.1.0",
       "model_version": "autonomy_loop_v1",
-      "sha256": "dd2795b281822188a69440ccf4fb41e4f90f36918b3d103d7d80cad71a1f40ce",
-      "generated_at_utc": "2026-02-22T09:57:55Z"
+      "sha256": "b5d5f3be8e839f46d339271b96b3f46c758f8ac652c568556f33db86ba26e131",
+      "generated_at_utc": "2026-02-22T10:25:13Z"
     }
   },
   "schema_version": "1.1.0"
