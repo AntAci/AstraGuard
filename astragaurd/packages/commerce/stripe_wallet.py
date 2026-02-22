@@ -140,17 +140,24 @@ def _attempt_spt_charge(run_id: str, premium_usd: float, metadata: Dict[str, Any
     }
 
 
-def execute_insurance_purchase(run_id: str, premium_usd: float, metadata: Dict[str, Any]) -> Dict[str, Any]:
-    """Create a Stripe Checkout Session or PaymentIntent for micro-insurance purchase."""
+def _execute_purchase(
+    run_id: str,
+    amount_usd_raw: float,
+    metadata: Dict[str, Any],
+    product_name: str,
+    mode_override: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Create a Stripe Checkout Session or PaymentIntent for a priced action."""
 
-    mode = _env_str("STRIPE_MODE", "checkout").strip().lower()
+    mode = (mode_override or _env_str("STRIPE_MODE", "checkout")).strip().lower()
     if mode not in {"checkout", "payment_intent"}:
         mode = "checkout"
     currency = _safe_currency()
-    amount_usd = round(float(max(premium_usd, 0.0)), 2)
+    amount_usd = round(float(max(amount_usd_raw, 0.0)), 2)
 
     secret_key = os.environ.get("STRIPE_SECRET_KEY", "").strip()
     if not secret_key:
+        mock_checkout_url = _env_str("STRIPE_MOCK_CHECKOUT_URL", "http://localhost:5173/?paid=mocked")
         return {
             "provider": "stripe",
             "status": "MOCKED",
@@ -158,7 +165,7 @@ def execute_insurance_purchase(run_id: str, premium_usd: float, metadata: Dict[s
             "amount_usd": amount_usd,
             "currency": currency,
             "id": f"mock_{run_id}",
-            "checkout_url": None,
+            "checkout_url": mock_checkout_url if mode == "checkout" else None,
         }
 
     spt_note: Optional[Dict[str, Any]] = None
@@ -199,7 +206,7 @@ def execute_insurance_purchase(run_id: str, premium_usd: float, metadata: Dict[s
                 "success_url": success_url,
                 "cancel_url": cancel_url,
                 "line_items[0][price_data][currency]": currency,
-                "line_items[0][price_data][product_data][name]": "AstraGuard Micro-Insurance (24h)",
+                "line_items[0][price_data][product_data][name]": product_name,
                 "line_items[0][price_data][unit_amount]": amount_cents,
                 "line_items[0][quantity]": 1,
             }
@@ -235,3 +242,26 @@ def execute_insurance_purchase(run_id: str, premium_usd: float, metadata: Dict[s
         if spt_note:
             output["spt"] = spt_note
         return output
+
+
+def execute_insurance_purchase(run_id: str, premium_usd: float, metadata: Dict[str, Any]) -> Dict[str, Any]:
+    """Create a Stripe Checkout Session or PaymentIntent for micro-insurance purchase."""
+
+    return _execute_purchase(
+        run_id=run_id,
+        amount_usd_raw=premium_usd,
+        metadata=metadata,
+        product_name="AstraGuard Micro-Insurance (24h)",
+    )
+
+
+def execute_maneuver_purchase(run_id: str, maneuver_cost_usd: float, metadata: Dict[str, Any]) -> Dict[str, Any]:
+    """Create a Stripe Checkout Session for maneuver execution cost collection."""
+
+    return _execute_purchase(
+        run_id=run_id,
+        amount_usd_raw=maneuver_cost_usd,
+        metadata=metadata,
+        product_name="AstraGuard Maneuver Execution",
+        mode_override="checkout",
+    )

@@ -354,6 +354,9 @@ export function createDemoAutonomyResponse(targetEventId: string | null): RunAut
   const roi = costUsd > 0 ? valueGeneratedUsd / costUsd : 0
 
   const paymentStatus = decision === 'MANEUVER' ? 'scheduled' : 'skipped'
+  const paymentCheckoutUrl = decision === 'MANEUVER'
+    ? `/?demo_checkout=maneuver&run_id=${encodeURIComponent(runId)}`
+    : null
   const actions = recommendedActions(decision)
 
   return {
@@ -391,7 +394,7 @@ export function createDemoAutonomyResponse(targetEventId: string | null): RunAut
         amount_usd: costUsd,
         currency: 'usd',
         id: paymentStatus === 'scheduled' ? `SIM-${runId}` : null,
-        checkout_url: null,
+        checkout_url: paymentCheckoutUrl,
       },
       premium_quote_usd: 0,
       value_generated_usd: valueGeneratedUsd,
@@ -478,6 +481,7 @@ export function createDemoAutonomyResponse(targetEventId: string | null): RunAut
         transaction_id: paymentStatus === 'scheduled' ? `SIM-TX-${runId}` : null,
         processed_at_utc: completedAt,
         payment_intent_id: null,
+        checkout_url: paymentCheckoutUrl,
       },
       voice: {
         provider: 'demo',

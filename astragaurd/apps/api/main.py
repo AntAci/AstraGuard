@@ -580,16 +580,38 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
         LOGGER.info("INSURE action complete stripe_status=%s", payment_obj.get("status"))
         cost_usd = premium_quote_usd
     elif decision == "MANEUVER":
-        payment_obj = {
-            "provider": "stripe",
-            "status": "SCHEDULED",
-            "mode": "maneuver",
-            "amount_usd": maneuver_cost_usd,
-            "currency": stripe_currency,
-            "id": None,
-            "checkout_url": None,
-        }
-        LOGGER.info("MANEUVER action selected cost=%.2f", maneuver_cost_usd)
+        policy_ok, policy_reason = stripe_wallet.enforce_spend_policy(maneuver_cost_usd, decision, policy_ctx=None)
+        if not policy_ok:
+            payment_obj = {
+                "provider": "stripe",
+                "status": "DENIED_BY_POLICY",
+                "mode": "maneuver",
+                "amount_usd": maneuver_cost_usd,
+                "currency": stripe_currency,
+                "id": None,
+                "checkout_url": None,
+                "reason": policy_reason,
+            }
+        else:
+            metadata = {
+                "run_id": run_id,
+                "event_id": event_id,
+                "primary_id": _safe_int(selected_event.get("primary_id"), 0),
+                "secondary_id": _safe_int(selected_event.get("secondary_id"), 0),
+                "tca_utc": selected_event.get("tca_utc"),
+                "p_collision": p_collision,
+                "miss_distance_m": miss_distance_m,
+                "relative_speed_mps": relative_speed_mps,
+                "asset_value_usd": asset_value_usd,
+                "expected_loss_usd": expected_loss_usd,
+                "expected_loss_adjusted_usd": expected_loss_adjusted,
+                "impact_score": impact_score,
+                "maneuver_cost_usd": maneuver_cost_usd,
+                "llm_provider": decision_obj.get("llm_provider", "unknown"),
+                "decision": decision,
+            }
+            payment_obj = stripe_wallet.execute_maneuver_purchase(run_id, maneuver_cost_usd, metadata)
+        LOGGER.info("MANEUVER action complete stripe_status=%s cost=%.2f", payment_obj.get("status"), maneuver_cost_usd)
         cost_usd = maneuver_cost_usd
     elif decision == "DEFER":
         payment_obj = {

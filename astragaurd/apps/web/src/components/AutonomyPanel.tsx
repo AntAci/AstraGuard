@@ -152,6 +152,12 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, runErr
   const paymentStatusBg = paymentIsSkippedLike ? 'rgba(155, 120, 7, 0.1)' : 'rgba(46, 138, 102, 0.1)'
   const paymentId = phase3Payment?.id ?? payment?.id ?? payment?.transaction_id ?? payment?.payment_intent_id ?? null
   const checkoutUrl = phase3Payment?.checkout_url ?? payment?.checkout_url ?? null
+  const checkoutHelpText = decisionMode === 'MANEUVER'
+    ? 'Continue to secure checkout to authorize this maneuver execution step.'
+    : 'Continue to secure checkout to complete this contingency coverage step.'
+  const checkoutButtonText = decisionMode === 'MANEUVER'
+    ? 'Open Maneuver Checkout'
+    : 'Open Secure Checkout'
   const firstAction = decision?.recommended_actions?.[0]
   const solutionAction = friendlyActionLabel(firstAction ?? 'no_action')
   const voiceStatus = String(voice?.status ?? '').toLowerCase()
@@ -492,7 +498,7 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, runErr
                 {checkoutUrl && (
                   <>
                     <div style={{ color: 'var(--text-muted)', fontSize: 11, lineHeight: 1.45, marginTop: 8 }}>
-                      Continue to secure checkout to complete this contingency coverage step.
+                      {checkoutHelpText}
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
                       <a
@@ -514,7 +520,7 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, runErr
                           textDecoration: 'none',
                         }}
                       >
-                        Open Secure Checkout
+                        {checkoutButtonText}
                       </a>
                     </div>
                   </>

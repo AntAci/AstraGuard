@@ -1,9 +1,9 @@
 {
-  "run_id": "RUN-20260222102502",
+  "run_id": "RUN-20260222103558",
   "status": "completed",
-  "run_at_utc": "2026-02-22T10:25:02Z",
-  "started_at_utc": "2026-02-22T10:25:02Z",
-  "completed_at_utc": "2026-02-22T10:25:13Z",
+  "run_at_utc": "2026-02-22T10:35:58Z",
+  "started_at_utc": "2026-02-22T10:35:58Z",
+  "completed_at_utc": "2026-02-22T10:36:06Z",
   "selected_event_id": "EVT-31698-36605-2026-02-22T15:49:00Z",
   "top_event_ids": [
     "EVT-31698-36605-2026-02-22T15:49:00Z",
@@ -49,25 +49,24 @@
     "var_usd": 832337.822693037,
     "confidence": 0.98,
     "rationale": [
-      "Collision probability (0.00369) is significantly above critical thresholds, and risk is sustained/rising near TCA.",
-      "Maneuver is feasible and cost-effective ($5,000) compared to insurance ($14,757.76) and expected loss ($832,337.82)."
+      "Gate decision is MANEUVER due to sustained/rising risk near TCA. Maneuver is feasible and significantly more cost-effective ($5,000) than the expected loss ($832k) or insurance premium ($14.7k)."
     ],
     "llm_provider": "gemini",
     "llm_usage": {
       "input_tokens": 754,
-      "output_tokens": 171,
-      "total_tokens": 3272,
+      "output_tokens": 149,
+      "total_tokens": 2302,
       "source": "provider"
     },
-    "llm_cost_usd": 0.0001438,
+    "llm_cost_usd": 0.000135,
     "llm_observability": {
       "provider": "gemini",
       "model": "gemini-2.5-flash",
-      "latency_ms": 11393.325,
+      "latency_ms": 7284.342,
       "usage": {
         "input_tokens": 754,
-        "output_tokens": 171,
-        "total_tokens": 3272,
+        "output_tokens": 149,
+        "total_tokens": 2302,
         "source": "provider"
       },
       "pricing": {
@@ -75,7 +74,7 @@
         "output_per_million_usd": 0.4,
         "estimation_mode": "provider_usage"
       },
-      "estimated_cost_usd": 0.0001438,
+      "estimated_cost_usd": 0.000135,
       "trace": {
         "trace_id": null,
         "span_id": null
@@ -114,12 +113,12 @@
   },
   "payment": {
     "provider": "stripe",
-    "status": "SCHEDULED",
-    "mode": "maneuver",
+    "status": "CREATED",
+    "mode": "checkout_session",
     "amount_usd": 5000.0,
     "currency": "usd",
-    "id": null,
-    "checkout_url": null
+    "id": "cs_test_a1oGV73Z0o9K6GzpZkNB9DekgKOwBfQDox2bWx6S8TMkIy0lo6CZwmJmHL",
+    "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_a1oGV73Z0o9K6GzpZkNB9DekgKOwBfQDox2bWx6S8TMkIy0lo6CZwmJmHL#fidnandhYHdWcXxpYCc%2FJ2FgY2RwaXEnKSdkdWxOYHwnPyd1blpxYHZxWjA0UTZRY2ZUf09GbV9sVFUxVX1KMlY1b3xoYmFvVWJiYTdPY1VzYG5gd2RBV3ZzcVNhUHY1dFdUf3E9UUg8UGFXYFBGTD08b2dUQWl2QDVuQmRGMEYzNEIwNTUyNEhXU102ZicpJ2N3amhWYHdzYHcnP3F3cGApJ2dkZm5id2pwa2FGamlqdyc%2FJyZjY2NjY2MnKSdpZHxqcHFRfHVgJz8ndmxrYmlgWmxxYGgnKSdga2RnaWBVaWRmYG1qaWFgd3YnP3F3cGB4JSUl"
   },
   "premium_quote_usd": 14757.76,
   "value_generated_usd": 832337.822693037,
@@ -127,11 +126,11 @@
   "llm_observability": {
     "provider": "gemini",
     "model": "gemini-2.5-flash",
-    "latency_ms": 11393.325,
+    "latency_ms": 7284.342,
     "usage": {
       "input_tokens": 754,
-      "output_tokens": 171,
-      "total_tokens": 3272,
+      "output_tokens": 149,
+      "total_tokens": 2302,
       "source": "provider"
     },
     "pricing": {
@@ -139,7 +138,7 @@
       "output_per_million_usd": 0.4,
       "estimation_mode": "provider_usage"
     },
-    "estimated_cost_usd": 0.0001438,
+    "estimated_cost_usd": 0.000135,
     "trace": {
       "trace_id": null,
       "span_id": null
@@ -148,22 +147,22 @@
   "roi": 166.4675645386074,
   "narration_text": "AstraGuard briefing. Collision probability 3.69e-03 with miss distance 94 meters. Earth impact score 6% near Strait of Malacca. Adjusted expected loss $832,338. Decision: MANEUVER. Action cost $5000.00. ROI 166.5x. Provider: gemini.",
   "consultant_decision": {
-    "decision_id": "DEC-20260222102502",
+    "decision_id": "DEC-20260222103558",
     "event_id": "EVT-31698-36605-2026-02-22T15:49:00Z",
     "provider": "gemini",
     "model_version": "gemini-2.5-flash",
     "decision": "MANEUVER",
     "confidence": 0.98,
-    "rationale": "Collision probability (0.00369) is significantly above critical thresholds, and risk is sustained/rising near TCA. Maneuver is feasible and cost-effective ($5,000) compared to insurance ($14,757.76) and expected loss ($832,337.82).",
+    "rationale": "Gate decision is MANEUVER due to sustained/rising risk near TCA. Maneuver is feasible and significantly more cost-effective ($5,000) than the expected loss ($832k) or insurance premium ($14.7k).",
     "recommended_actions": [
       "schedule_maneuver",
       "monitor_24h"
     ],
-    "generated_at_utc": "2026-02-22T10:25:13Z",
+    "generated_at_utc": "2026-02-22T10:36:06Z",
     "schema_version": "1.1.0"
   },
   "value_signal": {
-    "value_signal_id": "VAL-20260222102502",
+    "value_signal_id": "VAL-20260222103558",
     "event_id": "EVT-31698-36605-2026-02-22T15:49:00Z",
     "provider": "paid_ai",
     "model_version": "paid_ai",
@@ -172,25 +171,25 @@
     "intervention_cost_usd": 5000.0,
     "roi_ratio": 166.4675645386074,
     "confidence": 0.98,
-    "generated_at_utc": "2026-02-22T10:25:13Z",
+    "generated_at_utc": "2026-02-22T10:36:06Z",
     "schema_version": "1.1.0"
   },
   "payment_result": {
-    "payment_result_id": "PAY-20260222102502",
-    "decision_id": "DEC-20260222102502",
+    "payment_result_id": "PAY-20260222103558",
+    "decision_id": "DEC-20260222103558",
     "event_id": "EVT-31698-36605-2026-02-22T15:49:00Z",
     "provider": "stripe",
-    "mode": "maneuver",
-    "status": "SCHEDULED",
+    "mode": "checkout_session",
+    "status": "CREATED",
     "amount_usd": 5000.0,
     "currency": "USD",
-    "payment_intent_id": null,
-    "transaction_id": null,
-    "processed_at_utc": "2026-02-22T10:25:13Z",
+    "payment_intent_id": "cs_test_a1oGV73Z0o9K6GzpZkNB9DekgKOwBfQDox2bWx6S8TMkIy0lo6CZwmJmHL",
+    "transaction_id": "cs_test_a1oGV73Z0o9K6GzpZkNB9DekgKOwBfQDox2bWx6S8TMkIy0lo6CZwmJmHL",
+    "processed_at_utc": "2026-02-22T10:36:06Z",
     "schema_version": "1.1.0"
   },
   "vision_report": {
-    "vision_report_id": "VR-20260222102502",
+    "vision_report_id": "VR-20260222103558",
     "event_id": "EVT-31698-36605-2026-02-22T15:49:00Z",
     "provider": "gemini-2.5-flash",
     "model_version": "gemini-2.5-flash",
@@ -204,7 +203,7 @@
         "detail": "Selected event EVT-31698-36605-2026-02-22T15:49:00Z for closed-loop execution."
       }
     ],
-    "generated_at_utc": "2026-02-22T10:25:13Z",
+    "generated_at_utc": "2026-02-22T10:36:06Z",
     "schema_version": "1.1.0"
   },
   "earth_impact": {
@@ -263,15 +262,15 @@
     "path": "/Users/antonioaciob/Desktop/Antlikeswinninghackeurope/astragaurd/data/processed/agent_ledger.jsonl",
     "summary_path": "/Users/antonioaciob/Desktop/Antlikeswinninghackeurope/astragaurd/data/processed/agent_ledger_summary.json",
     "summary": {
-      "runs": 51,
-      "total_cost_usd": 224992.85,
-      "total_value_usd": 30488066.498387974,
-      "net_value_usd": 30263073.648387972,
-      "avg_roi": 146.1725742736806,
-      "total_llm_cost_usd": 0.003596600000000001,
-      "total_llm_tokens": 83835.0,
-      "avg_llm_cost_usd_per_run": 7.0521568627451e-05,
-      "updated_at_utc": "2026-02-22T10:25:13Z"
+      "runs": 52,
+      "total_cost_usd": 229992.85,
+      "total_value_usd": 31320404.321081012,
+      "net_value_usd": 31090411.47108101,
+      "avg_roi": 146.6799490303038,
+      "total_llm_cost_usd": 0.003731600000000001,
+      "total_llm_tokens": 86137.0,
+      "avg_llm_cost_usd_per_run": 7.176153846153848e-05,
+      "updated_at_utc": "2026-02-22T10:36:06Z"
     }
   },
   "errors": [],
