@@ -8,9 +8,13 @@ interface Props {
 
 function formatProbability(pc: number): string {
   if (pc <= 0) return '< 1e-10'
-  if (pc < 1e-6) return pc.toExponential(1)
-  if (pc < 1e-3) return pc.toExponential(2)
-  return `${(pc * 100).toFixed(2)}%`
+  if (pc >= 1e-3) return `${(pc * 100).toFixed(2)}%`
+  if (pc >= 1e-5) return `${(pc * 100).toFixed(3)}%`
+  if (pc >= 1e-8) {
+    const oneIn = Math.max(1, Math.round(1 / pc))
+    return `1 in ${oneIn.toLocaleString()}`
+  }
+  return pc.toExponential(1)
 }
 
 function decisionHintLabel(mode: ConjunctionEvent['decision_mode_hint']): string {
@@ -18,6 +22,12 @@ function decisionHintLabel(mode: ConjunctionEvent['decision_mode_hint']): string
   if (mode === 'MANEUVER') return 'Avoidance Burn'
   if (mode === 'IGNORE') return 'No Action'
   return ''
+}
+
+function defaultActionLabel(riskTier: string): string {
+  if (riskTier === 'CRITICAL' || riskTier === 'HIGH') return 'Avoidance Burn'
+  if (riskTier === 'MEDIUM') return 'Defer & Recheck'
+  return 'No Action'
 }
 
 const TIER_COLOR: Record<string, string> = {
@@ -52,11 +62,11 @@ export default function EventCard({ event, selected, onClick }: Props) {
   const decisionHint = event.decision_mode_hint ?? null
   const badgeClass = decisionHint
     ? `badge-${decisionHint}`
-    : `badge-${event.risk_tier === 'CRITICAL' ? 'MANEUVER' : event.risk_tier === 'HIGH' ? 'INSURE' : event.risk_tier === 'MEDIUM' ? 'MONITOR' : 'IGNORE'}`
+    : `badge-${event.risk_tier === 'CRITICAL' || event.risk_tier === 'HIGH' ? 'MANEUVER' : event.risk_tier === 'MEDIUM' ? 'DEFER' : 'IGNORE'}`
   const badgeText = decisionHint === 'MANEUVER' && typeof event.plan_delta_v_mps === 'number'
     ? `MANEUVER ${event.plan_delta_v_mps.toFixed(3)}m/s`
-    : (decisionHint ?? event.risk_tier)
-  const actionText = decisionHintLabel(decisionHint)
+    : (decisionHint ?? `RISK ${event.risk_tier}`)
+  const actionText = decisionHintLabel(decisionHint) || defaultActionLabel(event.risk_tier)
 
   return (
     <div
@@ -91,10 +101,10 @@ export default function EventCard({ event, selected, onClick }: Props) {
       </div>
       <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
         <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-          Dist: <span style={{ color: 'var(--text-primary)' }}>{distKm} km</span>
+          Miss: <span style={{ color: 'var(--text-primary)' }}>{distKm} km</span>
         </span>
         <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-          Pc: <span style={{ color: tierColor }}>{pcExp}</span>
+          Risk: <span style={{ color: tierColor }}>{pcExp}</span>
         </span>
       </div>
       <div style={{ color: 'var(--text-muted)', fontSize: 10, marginTop: 4 }}>
@@ -102,7 +112,7 @@ export default function EventCard({ event, selected, onClick }: Props) {
       </div>
       {actionText && (
         <div style={{ color: 'var(--text-primary)', fontSize: 10, marginTop: 2 }}>
-          Action: {actionText}
+          Recommended: {actionText}
         </div>
       )}
       {decisionHint === 'DEFER' && event.defer_until_utc && (

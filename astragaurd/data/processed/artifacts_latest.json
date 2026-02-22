@@ -1,27 +1,34 @@
 {
-  "generated_at_utc": "2026-02-22T08:01:07Z",
-  "latest_run_id": null,
+  "generated_at_utc": "2026-02-22T09:57:55Z",
+  "latest_run_id": "RUN-20260222095741",
   "artifacts": {
     "top_conjunctions": {
       "path": "data/processed/top_conjunctions.json",
       "schema_version": "1.1.0",
       "model_version": "step2_v1_assumed_covariance",
-      "sha256": "335163fec7e2ce22147b24732cc244abae88bf7985191145ae25ccde79223489",
-      "generated_at_utc": "2026-02-22T08:01:07Z"
+      "sha256": "1409910ed5a7c0d17b4592272f2bfc645e909dbbfe1ab51152925c855731cde2",
+      "generated_at_utc": "2026-02-22T00:00:00Z"
     },
     "cesium_snapshot": {
       "path": "data/processed/cesium_orbits_snapshot.json",
       "schema_version": "1.1.0",
       "model_version": "step2_v1_assumed_covariance",
-      "sha256": "289c2ac59d8732e0c2f79cc95211795ad93c0135917ffb1b88f52e7fc704ef53",
-      "generated_at_utc": "2026-02-22T08:01:07Z"
+      "sha256": "be75692b09e6303fb36979490cf1bb041dbc0b74fac9ce0678b9b5cea27e1ec4",
+      "generated_at_utc": "2026-02-22T00:00:00Z"
     },
     "maneuver_plans": {
       "path": "data/processed/maneuver_plans.json",
       "schema_version": "1.1.0",
       "model_version": "step2_v1_assumed_covariance",
-      "sha256": "655e4561b14256ddb9ed77ee07cfe92cda7aac8c519a1de9719c51c5b9d63783",
-      "generated_at_utc": "2026-02-22T08:01:07Z"
+      "sha256": "a23e6f96fbefc35acf60e5774fac7eea205a5df67b15e52961c7a7ce01dc22ea",
+      "generated_at_utc": "2026-02-22T00:00:00Z"
+    },
+    "autonomy_run_result": {
+      "path": "data/processed/autonomy_run_result_latest.json",
+      "schema_version": "1.1.0",
+      "model_version": "autonomy_loop_v1",
+      "sha256": "dd2795b281822188a69440ccf4fb41e4f90f36918b3d103d7d80cad71a1f40ce",
+      "generated_at_utc": "2026-02-22T09:57:55Z"
     }
   },
   "schema_version": "1.1.0"

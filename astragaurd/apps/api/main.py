@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -221,6 +222,86 @@ def _load_maneuver_plans_from_manifest(manifest: Dict[str, Any]) -> Dict[str, An
     return {}
 
 
+_EVENT_ID_RE = re.compile(r"^EVT-(\d+)-(\d+)-(.+)$")
+
+
+def _parse_utc_or_none(value: Any) -> Optional[datetime]:
+    if value is None:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+def _extract_event_pair_and_tca(event: Dict[str, Any]) -> tuple[Optional[tuple[int, int]], Optional[datetime]]:
+    event_id = str(event.get("event_id", "")).strip()
+    primary: Optional[int] = None
+    secondary: Optional[int] = None
+    tca = _parse_utc_or_none(event.get("tca_utc"))
+
+    match = _EVENT_ID_RE.match(event_id)
+    if match:
+        try:
+            primary = int(match.group(1))
+            secondary = int(match.group(2))
+        except Exception:
+            primary = None
+            secondary = None
+        if tca is None:
+            tca = _parse_utc_or_none(match.group(3))
+
+    if primary is None:
+        primary = _safe_int(event.get("primary_id", event.get("primary_norad_id")), -1)
+        if primary < 0:
+            primary = None
+    if secondary is None:
+        secondary = _safe_int(event.get("secondary_id", event.get("secondary_norad_id")), -1)
+        if secondary < 0:
+            secondary = None
+
+    pair = tuple(sorted((primary, secondary))) if primary is not None and secondary is not None else None
+    return pair, tca
+
+
+def _resolve_plan_entry_for_event(event: Dict[str, Any], plans_by_event_id: Dict[str, Any]) -> tuple[Dict[str, Any], Optional[str]]:
+    if not isinstance(plans_by_event_id, dict) or not plans_by_event_id:
+        return {}, None
+
+    event_id = str(event.get("event_id", "")).strip()
+    exact = plans_by_event_id.get(event_id)
+    if isinstance(exact, dict):
+        return exact, event_id
+
+    target_pair, target_tca = _extract_event_pair_and_tca(event)
+    if target_pair is None:
+        return {}, None
+
+    best_entry: Optional[Dict[str, Any]] = None
+    best_event_id: Optional[str] = None
+    best_delta_seconds: Optional[float] = None
+
+    for candidate_event_id, candidate_entry in plans_by_event_id.items():
+        if not isinstance(candidate_entry, dict):
+            continue
+        candidate_identity = {"event_id": str(candidate_event_id)}
+        candidate_pair, candidate_tca = _extract_event_pair_and_tca(candidate_identity)
+        if candidate_pair != target_pair:
+            continue
+        if target_tca is not None and candidate_tca is not None:
+            delta_seconds = abs((candidate_tca - target_tca).total_seconds())
+        else:
+            delta_seconds = float("inf")
+        if best_delta_seconds is None or delta_seconds < best_delta_seconds:
+            best_delta_seconds = delta_seconds
+            best_entry = candidate_entry
+            best_event_id = str(candidate_event_id)
+
+    if best_entry is None:
+        return {}, None
+    return best_entry, best_event_id
+
+
 def _compute_default_defer_until(tca_utc: str) -> Optional[str]:
     try:
         tca = datetime.fromisoformat(str(tca_utc).replace("Z", "+00:00")).astimezone(timezone.utc)
@@ -296,7 +377,7 @@ def _llm_model_name(provider: str) -> str:
         return os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
     if provider == "gemini":
         return os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-    return "fallback_policy_v1"
+    return "unknown_provider"
 
 
 def _build_loop_request() -> Dict[str, Any]:
@@ -334,9 +415,13 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
 
     run_id = "RUN-" + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     event_id = str(selected_event.get("event_id"))
-    plan_entry = plans_by_event_id.get(event_id) if isinstance(plans_by_event_id, dict) else None
-    if not isinstance(plan_entry, dict):
-        plan_entry = {}
+    plan_entry, matched_plan_event_id = _resolve_plan_entry_for_event(selected_event, plans_by_event_id)
+    if matched_plan_event_id and matched_plan_event_id != event_id:
+        LOGGER.warning(
+            "Plan lookup fallback matched event_id=%s to plan_event_id=%s",
+            event_id,
+            matched_plan_event_id,
+        )
     trend_metrics = plan_entry.get("trend_metrics")
     if not isinstance(trend_metrics, dict):
         trend_metrics = {}
@@ -347,13 +432,6 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
     if decision_mode_hint not in {"IGNORE", "DEFER", "MANEUVER"}:
         decision_mode_hint = "IGNORE"
     defer_until_utc = plan_entry.get("defer_until_utc")
-    if decision_mode_hint == "DEFER" and not defer_until_utc:
-        defer_until_utc = _compute_default_defer_until(str(selected_event.get("tca_utc", "")))
-    if decision_mode_hint == "DEFER":
-        defer_until_utc = _ensure_future_defer_until(
-            raw_defer_until_utc=defer_until_utc,
-            tca_utc=str(selected_event.get("tca_utc", "")),
-        )
     p_collision = _safe_float(selected_event.get("p_collision", selected_event.get("pc_assumed", 0.0)), 0.0)
     miss_distance_m = _safe_float(selected_event.get("miss_distance_m", 0.0), 0.0)
     relative_speed_mps = _safe_float(selected_event.get("relative_speed_mps", 0.0), 0.0)
@@ -382,44 +460,64 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
         impact_score,
         expected_loss_adjusted,
     )
-    decision_obj = consultant.decide(
-        selected_event,
-        {"asset_value_usd": asset_value_usd, "impact_score": impact_score},
-        {
-            "premium_quote_usd": premium_quote_usd,
-            "maneuver_cost_usd": maneuver_cost_usd,
-            "raw_expected_loss_usd": raw_expected_loss,
-            "expected_loss_adjusted_usd": expected_loss_adjusted,
-            "trend_metrics": trend_metrics,
-            "maneuver_plan": maneuver_plan,
-            "trend_mode_hint": decision_mode_hint,
-        },
-    )
-    llm_recommendation = str(decision_obj.get("decision", "IGNORE")).upper().strip()
+    try:
+        decision_obj = consultant.decide(
+            selected_event,
+            {"asset_value_usd": asset_value_usd, "impact_score": impact_score},
+            {
+                "premium_quote_usd": premium_quote_usd,
+                "maneuver_cost_usd": maneuver_cost_usd,
+                "raw_expected_loss_usd": raw_expected_loss,
+                "expected_loss_adjusted_usd": expected_loss_adjusted,
+                "trend_metrics": trend_metrics,
+                "maneuver_plan": maneuver_plan,
+            },
+        )
+    except Exception as err:
+        LOGGER.exception("Consultant decision failed without fallback: %s", err)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "schema_version": SCHEMA_VERSION,
+                "error": "CONSULTANT_UNAVAILABLE",
+                "details": [f"{type(err).__name__}: {err}"],
+            },
+        ) from err
+    llm_recommendation = str(decision_obj.get("decision", "")).upper().strip()
     if llm_recommendation not in {"IGNORE", "INSURE", "MANEUVER", "DEFER"}:
-        LOGGER.warning("Unexpected decision value from consultant: %s", llm_recommendation)
-        llm_recommendation = "IGNORE"
+        LOGGER.error("Unexpected decision value from consultant: %s", llm_recommendation)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "schema_version": SCHEMA_VERSION,
+                "error": "CONSULTANT_INVALID_OUTPUT",
+                "details": [f"Unexpected decision value: {llm_recommendation!r}"],
+            },
+        )
 
-    decision_mode = decision_mode_hint
-    decision_reason_code = str(plan_entry.get("gate_reason_code", trend_metrics.get("gate_reason_code", "NO_PLAN_DATA")))
-    decision_reason_text = str(plan_entry.get("gate_reason", trend_metrics.get("gate_reason", "No maneuver plan artifact data available.")))
-    if decision_mode == "MANEUVER":
+    decision = llm_recommendation
+    decision_mode = decision
+    decision_reason_code = str(plan_entry.get("gate_reason_code", trend_metrics.get("gate_reason_code", "MODEL_RECOMMENDATION")))
+    decision_reason_text = str(plan_entry.get("gate_reason", trend_metrics.get("gate_reason", "Decision selected by consultant model output.")))
+    if decision == "DEFER":
+        defer_until_utc = _ensure_future_defer_until(
+            raw_defer_until_utc=defer_until_utc,
+            tca_utc=str(selected_event.get("tca_utc", "")),
+        )
+    else:
+        defer_until_utc = None
+
+    if decision == "MANEUVER":
         if not maneuver_plan:
-            decision_mode = "DEFER"
-            defer_until_utc = defer_until_utc or _compute_default_defer_until(str(selected_event.get("tca_utc", "")))
-            decision_reason_code = "PLANNER_MISSING"
-            decision_reason_text = "Maneuver-eligible trend but planner data missing; deferring for re-evaluation."
+            decision_reason_code = "MANEUVER_PLAN_MISSING"
+            decision_reason_text = "Consultant selected maneuver; no precomputed maneuver plan artifact is available."
         elif str(maneuver_plan.get("feasibility", "infeasible")).lower() != "feasible":
-            decision_mode = "DEFER"
-            defer_until_utc = defer_until_utc or _compute_default_defer_until(str(selected_event.get("tca_utc", "")))
-            decision_reason_code = "PLANNER_INFEASIBLE"
-            decision_reason_text = "Maneuver plan exceeds delta-v cap; deferring for re-evaluation."
+            decision_reason_code = "MANEUVER_PLAN_INFEASIBLE"
+            decision_reason_text = "Consultant selected maneuver; precomputed maneuver plan is marked infeasible."
 
-    decision = decision_mode
     decision_obj["decision"] = decision
     decision_obj["decision_mode"] = decision_mode
     decision_obj["llm_recommendation"] = llm_recommendation
-    decision_obj["llm_disagreed_with_guardrail"] = bool(llm_recommendation != decision_mode)
     decision_obj["decision_mode_hint"] = decision_mode_hint
     decision_obj["decision_reason_code"] = decision_reason_code
     decision_obj["decision_reason_text"] = decision_reason_text
@@ -432,8 +530,8 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
     llm_observability = decision_obj.get("llm_observability")
     if not isinstance(llm_observability, dict):
         llm_observability = {
-            "provider": str(decision_obj.get("llm_provider", "fallback")),
-            "model": _llm_model_name(str(decision_obj.get("llm_provider", "fallback"))),
+            "provider": str(decision_obj.get("llm_provider", "unknown")),
+            "model": _llm_model_name(str(decision_obj.get("llm_provider", "unknown"))),
             "latency_ms": 0.0,
             "usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "source": "none"},
             "pricing": {"input_per_million_usd": 0.0, "output_per_million_usd": 0.0, "estimation_mode": "legacy_default"},
@@ -475,7 +573,7 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
                 "expected_loss_adjusted_usd": expected_loss_adjusted,
                 "impact_score": impact_score,
                 "premium_usd": premium_quote_usd,
-                "llm_provider": decision_obj.get("llm_provider", "fallback"),
+                "llm_provider": decision_obj.get("llm_provider", "unknown"),
                 "decision": decision,
             }
             payment_obj = stripe_wallet.execute_insurance_purchase(run_id, premium_quote_usd, metadata)
@@ -484,7 +582,7 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
     elif decision == "MANEUVER":
         payment_obj = {
             "provider": "stripe",
-            "status": "N/A",
+            "status": "SCHEDULED",
             "mode": "maneuver",
             "amount_usd": maneuver_cost_usd,
             "currency": stripe_currency,
@@ -496,7 +594,7 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
     elif decision == "DEFER":
         payment_obj = {
             "provider": "stripe",
-            "status": "N/A",
+            "status": "DEFERRED",
             "mode": "defer",
             "amount_usd": 0.0,
             "currency": stripe_currency,
@@ -508,7 +606,7 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
     else:
         payment_obj = {
             "provider": "stripe",
-            "status": "N/A",
+            "status": "SKIPPED",
             "mode": "none",
             "amount_usd": 0.0,
             "currency": stripe_currency,
@@ -541,19 +639,24 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
     LOGGER.info("Ledger updated path=%s runs=%s", ledger_path, ledger_summary.get("runs"))
 
     zone_label = impact_result.get("nearest_zone") or "open ocean"
+    decision_cost_text = (
+        f"Contingency coverage quote ${premium_quote_usd:.2f}."
+        if decision == "INSURE"
+        else f"Action cost ${cost_usd:.2f}."
+    )
     narration_text = (
         f"AstraGuard briefing. Collision probability {p_collision:.2e} with miss distance "
         f"{miss_distance_m:.0f} meters. Earth impact score {impact_score:.0%} near {zone_label}. "
         f"Adjusted expected loss ${expected_loss_adjusted:,.0f}. Decision: {decision}. "
-        f"Premium ${premium_quote_usd:.2f}. ROI {value_signal['roi']:.1f}x. "
-        f"Provider: {decision_obj.get('llm_provider', 'fallback')}."
+        f"{decision_cost_text} ROI {value_signal['roi']:.1f}x. "
+        f"Provider: {decision_obj.get('llm_provider', 'unknown')}."
     )
 
     voice_result = synthesize_speech(narration_text)
 
     completed_at = _iso_utc_now()
     top_event_ids = [event.get("event_id") for event in events[:5] if event.get("event_id")]
-    llm_provider = str(decision_obj.get("llm_provider", "fallback"))
+    llm_provider = str(decision_obj.get("llm_provider", "unknown"))
     llm_model = str((llm_observability or {}).get("model", _llm_model_name(llm_provider)))
 
     legacy_consultant = {
@@ -574,7 +677,7 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
         "event_id": event_id,
         "provider": "stripe",
         "mode": str(payment_obj.get("mode", "none")),
-        "status": str(payment_obj.get("status", "N/A")),
+        "status": str(payment_obj.get("status", "UNKNOWN")),
         "amount_usd": _safe_float(payment_obj.get("amount_usd"), 0.0),
         "currency": str(payment_obj.get("currency", stripe_currency)).upper(),
         "payment_intent_id": payment_obj.get("id"),
@@ -717,10 +820,7 @@ def get_top_conjunctions(include_plans: int = Query(0, ge=0, le=1)) -> Dict[str,
     enriched_events: List[Dict[str, Any]] = []
     for event in events:
         event_payload = dict(event) if isinstance(event, dict) else {}
-        event_id = str(event_payload.get("event_id", ""))
-        plan_entry = plans_by_event_id.get(event_id) if isinstance(plans_by_event_id, dict) else None
-        if not isinstance(plan_entry, dict):
-            plan_entry = {}
+        plan_entry, _ = _resolve_plan_entry_for_event(event_payload, plans_by_event_id)
         trend_metrics = plan_entry.get("trend_metrics") if isinstance(plan_entry.get("trend_metrics"), dict) else {}
         maneuver_plan = plan_entry.get("maneuver_plan") if isinstance(plan_entry.get("maneuver_plan"), dict) else {}
         event_payload["decision_mode_hint"] = plan_entry.get("decision_mode_hint")

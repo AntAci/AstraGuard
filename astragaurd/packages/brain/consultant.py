@@ -76,53 +76,6 @@ def _extract_json_substring(text: str) -> Optional[str]:
     return text[start : end + 1]
 
 
-def _fallback_policy(
-    expected_loss_usd: float,
-    premium_quote_usd: float,
-    maneuver_cost_usd: float,
-    trend_mode_hint: Optional[str] = None,
-) -> str:
-    hint = str(trend_mode_hint or "").upper().strip()
-    if hint in _DECISIONS:
-        return hint
-    premium_ref = max(premium_quote_usd, 1e-9)
-    if expected_loss_usd >= premium_ref * 3.0:
-        return "INSURE"
-    if expected_loss_usd >= maneuver_cost_usd:
-        return "MANEUVER"
-    return "IGNORE"
-
-
-def _fallback_decision(
-    expected_loss_usd: float,
-    var_usd: float,
-    premium_quote_usd: float,
-    maneuver_cost_usd: float,
-    reason: str,
-    trend_mode_hint: Optional[str] = None,
-) -> Dict[str, Any]:
-    decision = _fallback_policy(expected_loss_usd, premium_quote_usd, maneuver_cost_usd, trend_mode_hint=trend_mode_hint)
-    return {
-        "decision": decision,
-        "expected_loss_usd": float(expected_loss_usd),
-        "var_usd": float(var_usd),
-        "confidence": 0.72,
-        "rationale": [
-            "Fallback policy selected due to provider unavailability or invalid response.",
-            reason,
-            (
-                f"Rule path: expected_loss={expected_loss_usd:.2f}, "
-                f"premium={premium_quote_usd:.2f}, maneuver={maneuver_cost_usd:.2f}"
-            ),
-        ],
-        "llm_provider": "fallback",
-    }
-
-
-def _fallback_model_name() -> str:
-    return "fallback_policy_v1"
-
-
 def _attach_llm_observability(decision: Dict[str, Any], llm_observability: Dict[str, Any]) -> Dict[str, Any]:
     decision["llm_usage"] = llm_observability.get("usage") or {}
     decision["llm_cost_usd"] = _safe_float(llm_observability.get("estimated_cost_usd"), 0.0)
@@ -165,7 +118,7 @@ def _build_prompt(event: Dict[str, Any], economics: Dict[str, float]) -> str:
             "var_usd": "number",
             "confidence": "number_0_to_1",
             "rationale": ["string"],
-            "llm_provider": "claude|gemini|fallback",
+            "llm_provider": "claude|gemini",
         },
     }
     return json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
@@ -316,7 +269,7 @@ def _normalize_decision(
 
 
 def decide(event: Dict[str, Any], asset_ctx: Dict[str, Any], cost_ctx: Dict[str, Any]) -> Dict[str, Any]:
-    """Decide IGNORE/DEFER/INSURE/MANEUVER using Claude, Gemini, or deterministic fallback."""
+    """Decide IGNORE/DEFER/INSURE/MANEUVER using configured LLM providers only."""
 
     p_collision = _safe_float(event.get("p_collision", event.get("pc_assumed", 0.0)))
     miss_distance_m = _safe_float(event.get("miss_distance_m", 0.0))
@@ -324,8 +277,6 @@ def decide(event: Dict[str, Any], asset_ctx: Dict[str, Any], cost_ctx: Dict[str,
     asset_value_usd = _safe_float(asset_ctx.get("asset_value_usd", 0.0))
     premium_quote_usd = _safe_float(cost_ctx.get("premium_quote_usd", 0.0))
     maneuver_cost_usd = _safe_float(cost_ctx.get("maneuver_cost_usd", 0.0))
-    trend_mode_hint = str(cost_ctx.get("trend_mode_hint", "")).upper().strip()
-
     raw_expected_loss_usd = float(p_collision * asset_value_usd)
     expected_loss_usd = _safe_float(cost_ctx.get("expected_loss_adjusted_usd"), raw_expected_loss_usd)
     var_usd = float(expected_loss_usd)
@@ -346,88 +297,43 @@ def decide(event: Dict[str, Any], asset_ctx: Dict[str, Any], cost_ctx: Dict[str,
     }
     prompt = _build_prompt(event, economics)
 
-    provider = "fallback"
-    # Claude is the primary consultant; Gemini is the fallback provider.
-    if _anthropic_key():
-        provider = "claude"
-    elif _gemini_key():
-        provider = "gemini"
+    provider = "claude" if _anthropic_key() else "gemini" if _gemini_key() else ""
+    if not provider:
+        raise RuntimeError("No LLM consultant configured: set ANTHROPIC_API_KEY or GEMINI_API_KEY.")
 
-    if provider == "fallback":
-        LOGGER.info("Using consultant fallback decision path (no LLM keys configured)")
-        decision = _fallback_decision(
+    with TRACER.start_as_current_span("consultant.decide.llm_call") as span:
+        provider_result = _call_provider_with_retry(provider, prompt)
+        raw_text = str(provider_result.get("raw_text", ""))
+        parsed = _parse_model_json(raw_text)
+        decision = _normalize_decision(
+            parsed=parsed,
+            provider=provider,
             expected_loss_usd=expected_loss_usd,
             var_usd=var_usd,
             premium_quote_usd=premium_quote_usd,
             maneuver_cost_usd=maneuver_cost_usd,
-            reason="No ANTHROPIC_API_KEY or GEMINI_API_KEY configured.",
-            trend_mode_hint=trend_mode_hint,
         )
+
         llm_observability = build_llm_observability(
-            provider="fallback",
-            model=_fallback_model_name(),
-            prompt_text="",
-            completion_text="",
-            provider_response=None,
-            latency_ms=0.0,
-            no_llm_call=True,
+            provider=provider,
+            model=str(provider_result.get("model", "unknown")),
+            prompt_text=prompt,
+            completion_text=raw_text,
+            provider_response=provider_result.get("response_json"),
+            latency_ms=_safe_float(provider_result.get("latency_ms"), 0.0),
+            trace=format_trace_ids(span),
         )
-        return _attach_llm_observability(decision, llm_observability)
 
-    try:
-        with TRACER.start_as_current_span("consultant.decide.llm_call") as span:
-            provider_result = _call_provider_with_retry(provider, prompt)
-            raw_text = str(provider_result.get("raw_text", ""))
-            parsed = _parse_model_json(raw_text)
-            decision = _normalize_decision(
-                parsed=parsed,
-                provider=provider,
-                expected_loss_usd=expected_loss_usd,
-                var_usd=var_usd,
-                premium_quote_usd=premium_quote_usd,
-                maneuver_cost_usd=maneuver_cost_usd,
-            )
+        span.set_attribute("llm.provider", llm_observability.get("provider"))
+        span.set_attribute("llm.model", llm_observability.get("model"))
+        span.set_attribute("llm.decision", decision.get("decision", "IGNORE"))
+        span.set_attribute("llm.latency_ms", _safe_float(llm_observability.get("latency_ms"), 0.0))
+        usage = llm_observability.get("usage") or {}
+        span.set_attribute("llm.usage.input_tokens", _safe_float(usage.get("input_tokens"), 0.0))
+        span.set_attribute("llm.usage.output_tokens", _safe_float(usage.get("output_tokens"), 0.0))
+        span.set_attribute("llm.usage.total_tokens", _safe_float(usage.get("total_tokens"), 0.0))
+        span.set_attribute("llm.usage.source", str(usage.get("source", "unknown")))
+        span.set_attribute("llm.cost.estimated_usd", _safe_float(llm_observability.get("estimated_cost_usd"), 0.0))
 
-            llm_observability = build_llm_observability(
-                provider=provider,
-                model=str(provider_result.get("model", "unknown")),
-                prompt_text=prompt,
-                completion_text=raw_text,
-                provider_response=provider_result.get("response_json"),
-                latency_ms=_safe_float(provider_result.get("latency_ms"), 0.0),
-                trace=format_trace_ids(span),
-            )
-
-            span.set_attribute("llm.provider", llm_observability.get("provider"))
-            span.set_attribute("llm.model", llm_observability.get("model"))
-            span.set_attribute("llm.decision", decision.get("decision", "IGNORE"))
-            span.set_attribute("llm.latency_ms", _safe_float(llm_observability.get("latency_ms"), 0.0))
-            usage = llm_observability.get("usage") or {}
-            span.set_attribute("llm.usage.input_tokens", _safe_float(usage.get("input_tokens"), 0.0))
-            span.set_attribute("llm.usage.output_tokens", _safe_float(usage.get("output_tokens"), 0.0))
-            span.set_attribute("llm.usage.total_tokens", _safe_float(usage.get("total_tokens"), 0.0))
-            span.set_attribute("llm.usage.source", str(usage.get("source", "unknown")))
-            span.set_attribute("llm.cost.estimated_usd", _safe_float(llm_observability.get("estimated_cost_usd"), 0.0))
-
-            LOGGER.info("Consultant decision generated via %s", provider)
-            return _attach_llm_observability(decision, llm_observability)
-    except Exception as err:  # broad by design to guarantee run completion
-        LOGGER.exception("Consultant provider failed; switching to fallback: %s", err)
-        decision = _fallback_decision(
-            expected_loss_usd=expected_loss_usd,
-            var_usd=var_usd,
-            premium_quote_usd=premium_quote_usd,
-            maneuver_cost_usd=maneuver_cost_usd,
-            reason=f"Provider failure: {type(err).__name__}: {err}",
-            trend_mode_hint=trend_mode_hint,
-        )
-        llm_observability = build_llm_observability(
-            provider="fallback",
-            model=_fallback_model_name(),
-            prompt_text="",
-            completion_text="",
-            provider_response=None,
-            latency_ms=0.0,
-            no_llm_call=True,
-        )
+        LOGGER.info("Consultant decision generated via %s", provider)
         return _attach_llm_observability(decision, llm_observability)

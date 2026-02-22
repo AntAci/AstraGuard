@@ -37,7 +37,6 @@ export default function CesiumGlobe({ snapshot, timeIndex, selectedEvent, onTime
   const noradIndexMapRef = useRef<Map<number, number>>(new Map())
   const pulseEntityRef = useRef<Cesium.Entity | null>(null)
   const continentsRef = useRef<Cesium.GeoJsonDataSource | null>(null)
-  const continentsLoadedRef = useRef(false)
 
   useEffect(() => {
     snapshotRef.current = snapshot
@@ -47,6 +46,7 @@ export default function CesiumGlobe({ snapshot, timeIndex, selectedEvent, onTime
   useEffect(() => {
     if (initializedRef.current || !containerRef.current) return
     initializedRef.current = true
+    let disposed = false
 
     try {
       // Suppress Ion token warning — we're not using Ion assets
@@ -151,44 +151,42 @@ export default function CesiumGlobe({ snapshot, timeIndex, selectedEvent, onTime
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
       clickHandlerRef.current = clickHandler
 
-      if (!continentsLoadedRef.current) {
-        continentsLoadedRef.current = true
-        const outlineColor = new Cesium.Color(0.58, 0.82, 0.96, 0.95)
-        const fillColor = new Cesium.Color(0.43, 0.68, 0.86, 0.12)
-        Cesium.GeoJsonDataSource.load('/geo/ne_110m_land.geojson', {
-          clampToGround: false,
-          stroke: outlineColor,
-          strokeWidth: 1.8,
-          fill: fillColor,
-        }).then((dataSource) => {
-          const liveViewer = viewerRef.current
-          if (!liveViewer || liveViewer.isDestroyed()) return
+      const outlineColor = new Cesium.Color(0.58, 0.82, 0.96, 0.95)
+      const fillColor = new Cesium.Color(0.43, 0.68, 0.86, 0.12)
+      Cesium.GeoJsonDataSource.load('/geo/ne_110m_land.geojson', {
+        clampToGround: false,
+        stroke: outlineColor,
+        strokeWidth: 1.8,
+        fill: fillColor,
+      }).then((dataSource) => {
+        if (disposed || viewer.isDestroyed()) return
 
-          continentsRef.current = dataSource
-          liveViewer.dataSources.add(dataSource)
-          dataSource.show = showContinents
+        continentsRef.current = dataSource
+        viewer.dataSources.add(dataSource)
+        dataSource.show = showContinents
 
-          for (const entity of dataSource.entities.values) {
-            if (entity.polygon) {
-              entity.polygon.outline = new Cesium.ConstantProperty(true)
-              entity.polygon.outlineColor = new Cesium.ConstantProperty(outlineColor)
-              entity.polygon.material = new Cesium.ColorMaterialProperty(fillColor)
-              entity.polygon.fill = new Cesium.ConstantProperty(true)
-              entity.polygon.height = new Cesium.ConstantProperty(12000)
-            }
-            if (entity.label) {
-              entity.label.show = new Cesium.ConstantProperty(false)
-            }
+        for (const entity of dataSource.entities.values) {
+          if (entity.polygon) {
+            entity.polygon.outline = new Cesium.ConstantProperty(true)
+            entity.polygon.outlineColor = new Cesium.ConstantProperty(outlineColor)
+            entity.polygon.material = new Cesium.ColorMaterialProperty(fillColor)
+            entity.polygon.fill = new Cesium.ConstantProperty(true)
+            entity.polygon.height = new Cesium.ConstantProperty(12000)
           }
-        }).catch((err) => {
-          console.warn('Continents overlay load failed:', err)
-        })
-      }
+          if (entity.label) {
+            entity.label.show = new Cesium.ConstantProperty(false)
+          }
+        }
+      }).catch((err) => {
+        console.warn('Continents overlay load failed:', err)
+      })
     } catch (err) {
       console.error('Cesium Viewer init failed:', err)
     }
 
     return () => {
+      disposed = true
+      continentsRef.current = null
       if (viewerRef.current && !viewerRef.current.isDestroyed()) {
         viewerRef.current.destroy()
       }

@@ -1,6 +1,6 @@
 # AstraGuard
 
-Autonomous maneuver-tax optimization stack: ingest TLEs, screen conjunction risk, run a deterministic decision loop (IGNORE/DEFER/INSURE/MANEUVER), and minimize recurring operations cost with auditable economics.
+Autonomous maneuver-tax optimization stack: ingest TLEs, screen conjunction risk, run an agentic decision loop (IGNORE/DEFER/MANEUVER, with optional contingency coverage), and minimize recurring operations cost with auditable economics.
 
 ## Business Model (2026 Pivot)
 
@@ -26,13 +26,39 @@ These are exactly the conditions AstraGuard targets: high-volume conjunction scr
 
 ### Why Now (2026)
 
-The market has crossed a practical tipping point: object counts are rising, fragmentation is compounding, and operators now face recurring conjunction decisions under tight time windows. AstraGuard is built for this operating regime: automate screening, suppress spiky false positives, and optimize action economics (ignore, defer, insure, maneuver) with auditable operator-ready UX.
+The market has crossed a practical tipping point: object counts are rising, fragmentation is compounding, and operators now face recurring conjunction decisions under tight time windows. AstraGuard is built for this operating regime: automate screening, suppress spiky false positives, and optimize action economics (ignore, defer, maneuver, optional contingency coverage) with auditable operator-ready UX.
 
 ### Sources
 
 - ESA Space Environment Statistics (SDUP): https://sdup.esoc.esa.int/discosweb/statistics/
 - ESA Space Environment Report 2025: https://www.esa.int/Space_Safety/Space_Debris/ESA_Space_Environment_Report_2025
 - U.S. Space Force 18th SDS Fact Sheet: https://www.spaceforce.mil/About-Us/Fact-Sheets/Fact-Sheet-Display/Article/3740012/18th-space-defense-squadron/
+
+## Agentic AI System
+
+AstraGuard runs an **agentic autonomy loop** with a strict LLM consultant:
+
+1. Ingest and screen conjunction candidates (`scripts/fetch_tles.py`, `scripts/run_screening.py`).
+2. Compute trend-gated risk state (`IGNORE` / `DEFER` / `MANEUVER` eligibility).
+3. Generate minimum-delta-v maneuver options when eligible.
+4. Evaluate economics (expected loss, maneuver cost, optional contingency coverage).
+5. Ask a consultant model for rationale and recommendation (`packages/brain/consultant.py`).
+6. Apply provider output normalization and execute selected action path.
+7. Emit auditable outputs: decision, reason code, actions, value signal, ledger, telemetry.
+
+LLM providers supported in the API loop:
+- Anthropic Claude (config via `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`)
+- Google Gemini (config via `GEMINI_API_KEY`, `GEMINI_MODEL`)
+- No fallback path in strict mode: if provider output is unavailable/invalid, the run fails explicitly.
+- No deterministic override guardrails: consultant decision is authoritative for action mode selection.
+
+Optional external agents:
+- Stripe for contingency coverage/payment execution
+- ElevenLabs for voice briefing narration
+- OTLP/Phoenix for tracing and observability
+
+For hackathon demos, the web app also supports a deterministic frontend-only scenario:
+- `VITE_DEMO_MODE=1 npm run dev`
 
 ## Core Capabilities
 
@@ -46,9 +72,9 @@ The market has crossed a practical tipping point: object counts are rising, frag
 - Maneuver planning artifact export (`maneuver_plans.json`)
 - Contract-locked artifact manifest (`artifacts_latest.json`)
 - FastAPI autonomy loop with:
-  - LLM consultant (Claude/Gemini + deterministic fallback)
+  - LLM consultant (Claude/Gemini, strict no-fallback mode)
   - Earth impact scoring
-  - Stripe premium quoting/purchase flow
+  - Optional Stripe-backed contingency coverage flow
   - Value-signal and ROI ledgering
   - Optional ElevenLabs voice briefing
   - Optional OpenTelemetry tracing to Phoenix/OTLP
@@ -66,10 +92,112 @@ The market has crossed a practical tipping point: object counts are rising, frag
 - **Minimal delta-v maneuver optimization** across candidate burn times and RTN directions (`packages/orbit/maneuver.py`).
 - **ECI -> ECEF frame transform** using GMST for Cesium-compatible globe rendering (`scripts/run_screening.py`).
 - **Contract-first artifact pipeline** with schema/model versioning and manifest-addressable outputs (`packages/contracts/*`, `artifacts_latest.json`).
-- **Hybrid autonomy policy**: deterministic decision mode with LLM rationale/fallback support (`apps/api/main.py`, `packages/brain/consultant.py`).
+- **Hybrid autonomy policy**: deterministic economics + LLM rationale/decision in strict provider mode (`apps/api/main.py`, `packages/brain/consultant.py`).
 - **Earth-impact scoring** to adjust expected loss with geospatial context (`packages/earth/impact.py`).
-- **Commerce + policy controls** for insurance checkout and maneuver-tax economics with ROI and ledger telemetry (`packages/commerce/*`, `packages/telemetry/*`).
+- **Commerce + policy controls** for optional contingency coverage and maneuver-tax economics with ROI and ledger telemetry (`packages/commerce/*`, `packages/telemetry/*`).
 - **Operational observability** via structured event telemetry, value signals, and optional OTLP/Phoenix tracing (`packages/telemetry/*`).
+
+## Data Usage
+
+### Data Inputs
+
+- Public orbital catalog data (TLEs) from CelesTrak groups (for example `ACTIVE`, `COSMOS-1408-DEBRIS`, `FENGYUN-1C-DEBRIS`, `IRIDIUM-33-DEBRIS`, `COSMOS-2251-DEBRIS`).
+- Runtime configuration and policy parameters from environment variables (risk thresholds, sigma model, maneuver constraints, pricing assumptions).
+
+### Derived Data (Generated by AstraGuard)
+
+- Propagated states and conjunction candidates.
+- Ranked conjunction artifacts (`top_conjunctions.json/.csv`).
+- Trend and maneuver-plan artifacts (`maneuver_plans.json`).
+- Visualization snapshot (`cesium_orbits_snapshot.json`).
+- Autonomy outputs (`autonomy_run_result_latest.json`), telemetry events, and value ledger records.
+
+### How Data Is Used In Decisions
+
+- Collision-risk features (`pc_assumed`, miss distance, relative speed) drive ranking and tiering.
+- Trend metrics (`pc_peak`, slope, stability, time-to-TCA) gate `DEFER` vs `MANEUVER`.
+- Maneuver planner data (burn time, direction, delta-v, feasibility) determines executable action quality.
+- Economics data (asset value, expected loss, maneuver cost, optional coverage cost) drives ROI-aware action selection.
+
+### External Data Sharing (Only When Enabled)
+
+- LLM providers receive decision context for rationale generation.
+- Stripe receives payment metadata only for coverage/payment flows.
+- ElevenLabs receives narration text only for voice synthesis.
+- OTLP/Phoenix receives telemetry spans/events when tracing is enabled.
+
+By default, artifacts are stored locally under `astragaurd/data/processed`.
+
+## Hackathon Demo Walkthrough (Real Data Example)
+
+Example run captured from `astragaurd/data/processed/autonomy_run_result_latest.json`
+(`run_id: RUN-20260222083645`, generated on February 22, 2026):
+
+### 1. Input Event
+
+- `event_id`: `EVT-31698-36605-2026-02-22T15:49:00Z`
+- `pc_assumed`: `3.689e-03`
+- `miss_distance_m`: `94.03`
+- `tca_utc`: `2026-02-22T15:49:00Z`
+
+### 2. Decision Output
+
+- `decision_mode`: `MANEUVER`
+- `decision_reason_code`: `SUSTAINED_RISK`
+- `confidence`: `0.95`
+- `recommended_actions`: `schedule_maneuver`, `monitor_24h`
+
+### 3. Maneuver Timing Advantage
+
+- Selected burn delta-v: `0.0105 m/s`
+- `early_vs_late_ratio`: `0.0208x`
+- Derived late-baseline delta-v: `0.5033 m/s`
+- Timing savings vs late baseline: `0.4928 m/s` (`97.9%` lower delta-v)
+
+### 4. Economics
+
+- Immediate maneuver cost: `$5,000.00`
+- Adjusted expected loss at risk state: `$832,337.82`
+- Estimated loss avoided: `$832,337.82`
+- ROI: `166.5x`
+
+### 5. Minimal Artifact Snippet
+
+```json
+{
+  "selected_event_id": "EVT-31698-36605-2026-02-22T15:49:00Z",
+  "decision_mode": "MANEUVER",
+  "decision": { "decision_reason_code": "SUSTAINED_RISK", "confidence": 0.95 },
+  "maneuver_plan": {
+    "burn_time_utc": "2026-02-21T15:49:00Z",
+    "direction": "+T",
+    "delta_v_mps": 0.010485783026016089,
+    "early_vs_late_ratio": 0.020833333333333336
+  },
+  "cost_usd": 5000.0,
+  "value_generated_usd": 832337.822693037,
+  "roi": 166.4675645386074
+}
+```
+
+### 6. Reproduce This Flow
+
+```bash
+cd astragaurd
+python scripts/fetch_tles.py
+python scripts/verify_tles.py
+python scripts/run_screening.py
+uvicorn apps.api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+In a second terminal:
+
+```bash
+cd astragaurd/apps/web
+npm run dev
+```
+
+Then run the optimization loop from the UI (select top risk event or specific `event_id`).
 
 ## Conjunction Events: Definition, Creation, Ranking
 
@@ -185,11 +313,21 @@ cd astragaurd
 uvicorn apps.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+Note: in strict no-fallback mode, `POST /run-autonomy-loop` requires at least one consultant key:
+`ANTHROPIC_API_KEY` or `GEMINI_API_KEY`.
+
 ### 5. Start Web UI
 
 ```bash
 cd astragaurd/apps/web
 npm run dev
+```
+
+### 6. Optional: Hackathon Demo UI (curated data)
+
+```bash
+cd astragaurd/apps/web
+VITE_DEMO_MODE=1 npm run dev
 ```
 
 - Web: `http://localhost:5173`
@@ -327,7 +465,7 @@ python scripts/demo_maneuver_reduction.py
 
 - `IGNORE`: no payment action, monitor only
 - `DEFER`: postpone action and re-evaluate at `defer_until_utc`
-- `INSURE`: quote/enforce policy, then Stripe purchase path
+- `INSURE`: optional contingency-coverage action (quote/enforce policy, then Stripe purchase path)
 - `MANEUVER`: operational action path with configured maneuver cost
 
 ## Notes

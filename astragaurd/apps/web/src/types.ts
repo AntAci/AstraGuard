@@ -80,7 +80,7 @@ export interface ConsultantDecision {
   rationale: string | string[]
   recommended_actions: string[]
   generated_at_utc: string
-  llm_provider?: 'claude' | 'gemini' | 'fallback'
+  llm_provider?: 'claude' | 'gemini' | 'demo' | string
   expected_loss_usd?: number
   var_usd?: number
   llm_usage?: LLMUsage

@@ -1,29 +1,29 @@
 {
-  "run_id": "RUN-20260222055859",
+  "run_id": "RUN-20260222095741",
   "status": "completed",
-  "run_at_utc": "2026-02-22T05:58:59Z",
-  "started_at_utc": "2026-02-22T05:58:59Z",
-  "completed_at_utc": "2026-02-22T05:59:07Z",
-  "selected_event_id": "EVT-31698-36605-2026-02-23T10:46:46Z",
+  "run_at_utc": "2026-02-22T09:57:41Z",
+  "started_at_utc": "2026-02-22T09:57:41Z",
+  "completed_at_utc": "2026-02-22T09:57:55Z",
+  "selected_event_id": "EVT-31698-36605-2026-02-22T15:49:00Z",
   "top_event_ids": [
-    "EVT-31698-36605-2026-02-23T10:46:46Z",
-    "EVT-30893-34474-2026-02-23T14:56:46Z",
-    "EVT-32459-36260-2026-02-23T11:25:46Z",
-    "EVT-29950-31055-2026-02-24T11:56:46Z",
-    "EVT-31049-31293-2026-02-22T23:13:46Z"
+    "EVT-31698-36605-2026-02-22T15:49:00Z",
+    "EVT-27844-29877-2026-02-24T11:29:00Z",
+    "EVT-34271-37165-2026-02-23T10:30:00Z",
+    "EVT-30721-38860-2026-02-24T19:20:00Z",
+    "EVT-30927-37387-2026-02-24T22:08:00Z"
   ],
   "event": {
-    "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z",
+    "event_id": "EVT-31698-36605-2026-02-22T15:49:00Z",
     "primary_id": 31698,
     "secondary_id": 36605,
-    "tca_utc": "2026-02-23T10:46:46Z",
-    "tca_index_snapshot": 64,
-    "miss_distance_m": 89.6010670968533,
-    "relative_speed_mps": 0.4747342899038495,
-    "pc_assumed": 0.0037081981152816607,
-    "risk_score": 0.0037081981152816607,
-    "window_start_utc": "2026-02-23T10:26:46Z",
-    "window_end_utc": "2026-02-23T11:06:46Z",
+    "tca_utc": "2026-02-22T15:49:00Z",
+    "tca_index_snapshot": 32,
+    "miss_distance_m": 94.02834655221,
+    "relative_speed_mps": 0.45317036050774745,
+    "pc_assumed": 0.003689440703426582,
+    "risk_score": 0.003689440703426582,
+    "window_start_utc": "2026-02-22T15:30:00Z",
+    "window_end_utc": "2026-02-22T16:10:00Z",
     "model_version": "step2_v1_assumed_covariance",
     "assumptions": {
       "dt_s": 600,
@@ -41,32 +41,33 @@
         "COSMOS-2251-DEBRIS"
       ]
     },
-    "schema_version": "1.0.0"
+    "schema_version": "1.1.0"
   },
   "decision": {
     "decision": "MANEUVER",
-    "expected_loss_usd": 889967.5476675985,
-    "var_usd": 889967.5476675985,
+    "expected_loss_usd": 832337.822693037,
+    "var_usd": 832337.822693037,
     "confidence": 0.95,
     "rationale": [
-      "Maneuver cost ($5,000) is significantly lower than both the insurance premium ($14,832.79) and the expected loss from collision ($889,967.55). Maneuvering is the most cost-effective option to mitigate the collision risk."
+      "Maneuver cost ($5,000) is significantly lower than the insurance premium ($14,757.76) and the unmitigated expected loss ($832,337.82).",
+      "Maneuvering is the most cost-effective mitigation strategy for this event."
     ],
     "llm_provider": "gemini",
     "llm_usage": {
-      "input_tokens": 409,
-      "output_tokens": 141,
-      "total_tokens": 2255,
+      "input_tokens": 440,
+      "output_tokens": 155,
+      "total_tokens": 3472,
       "source": "provider"
     },
-    "llm_cost_usd": 9.73e-05,
+    "llm_cost_usd": 0.000106,
     "llm_observability": {
       "provider": "gemini",
       "model": "gemini-2.5-flash",
-      "latency_ms": 8437.49,
+      "latency_ms": 14147.066,
       "usage": {
-        "input_tokens": 409,
-        "output_tokens": 141,
-        "total_tokens": 2255,
+        "input_tokens": 440,
+        "output_tokens": 155,
+        "total_tokens": 3472,
         "source": "provider"
       },
       "pricing": {
@@ -74,33 +75,41 @@
         "output_per_million_usd": 0.4,
         "estimation_mode": "provider_usage"
       },
-      "estimated_cost_usd": 9.73e-05,
+      "estimated_cost_usd": 0.000106,
       "trace": {
         "trace_id": null,
         "span_id": null
       }
-    }
+    },
+    "decision_mode": "MANEUVER",
+    "llm_recommendation": "MANEUVER",
+    "decision_mode_hint": "IGNORE",
+    "decision_reason_code": "MANEUVER_PLAN_MISSING",
+    "decision_reason_text": "Consultant selected maneuver; no precomputed maneuver plan artifact is available.",
+    "trend_metrics": {},
+    "defer_until_utc": null,
+    "maneuver_plan": null
   },
   "payment": {
     "provider": "stripe",
-    "status": "N/A",
+    "status": "SCHEDULED",
     "mode": "maneuver",
     "amount_usd": 5000.0,
     "currency": "usd",
     "id": null,
     "checkout_url": null
   },
-  "premium_quote_usd": 14832.79,
-  "value_generated_usd": 889967.5476675985,
+  "premium_quote_usd": 14757.76,
+  "value_generated_usd": 832337.822693037,
   "cost_usd": 5000.0,
   "llm_observability": {
     "provider": "gemini",
     "model": "gemini-2.5-flash",
-    "latency_ms": 8437.49,
+    "latency_ms": 14147.066,
     "usage": {
-      "input_tokens": 409,
-      "output_tokens": 141,
-      "total_tokens": 2255,
+      "input_tokens": 440,
+      "output_tokens": 155,
+      "total_tokens": 3472,
       "source": "provider"
     },
     "pricing": {
@@ -108,59 +117,59 @@
       "output_per_million_usd": 0.4,
       "estimation_mode": "provider_usage"
     },
-    "estimated_cost_usd": 9.73e-05,
+    "estimated_cost_usd": 0.000106,
     "trace": {
       "trace_id": null,
       "span_id": null
     }
   },
-  "roi": 177.9935095335197,
-  "narration_text": "AstraGuard briefing. Collision probability 3.71e-03 with miss distance 90 meters. Earth impact score 10% near Canberra DSN. Adjusted expected loss $889,968. Decision: MANEUVER. Premium $14832.79. ROI 178.0x. Provider: gemini.",
+  "roi": 166.4675645386074,
+  "narration_text": "AstraGuard briefing. Collision probability 3.69e-03 with miss distance 94 meters. Earth impact score 6% near Strait of Malacca. Adjusted expected loss $832,338. Decision: MANEUVER. Action cost $5000.00. ROI 166.5x. Provider: gemini.",
   "consultant_decision": {
-    "decision_id": "DEC-20260222055859",
-    "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z",
+    "decision_id": "DEC-20260222095741",
+    "event_id": "EVT-31698-36605-2026-02-22T15:49:00Z",
     "provider": "gemini",
     "model_version": "gemini-2.5-flash",
     "decision": "MANEUVER",
     "confidence": 0.95,
-    "rationale": "Maneuver cost ($5,000) is significantly lower than both the insurance premium ($14,832.79) and the expected loss from collision ($889,967.55). Maneuvering is the most cost-effective option to mitigate the collision risk.",
+    "rationale": "Maneuver cost ($5,000) is significantly lower than the insurance premium ($14,757.76) and the unmitigated expected loss ($832,337.82). Maneuvering is the most cost-effective mitigation strategy for this event.",
     "recommended_actions": [
       "schedule_maneuver",
       "monitor_24h"
     ],
-    "generated_at_utc": "2026-02-22T05:59:07Z",
-    "schema_version": "1.0.0"
+    "generated_at_utc": "2026-02-22T09:57:55Z",
+    "schema_version": "1.1.0"
   },
   "value_signal": {
-    "value_signal_id": "VAL-20260222055859",
-    "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z",
+    "value_signal_id": "VAL-20260222095741",
+    "event_id": "EVT-31698-36605-2026-02-22T15:49:00Z",
     "provider": "paid_ai",
     "model_version": "paid_ai",
-    "estimated_loss_avoided_usd": 889967.5476675985,
+    "estimated_loss_avoided_usd": 832337.822693037,
     "estimated_cost_usd": 5000.0,
     "intervention_cost_usd": 5000.0,
-    "roi_ratio": 177.9935095335197,
+    "roi_ratio": 166.4675645386074,
     "confidence": 0.95,
-    "generated_at_utc": "2026-02-22T05:59:07Z",
-    "schema_version": "1.0.0"
+    "generated_at_utc": "2026-02-22T09:57:55Z",
+    "schema_version": "1.1.0"
   },
   "payment_result": {
-    "payment_result_id": "PAY-20260222055859",
-    "decision_id": "DEC-20260222055859",
-    "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z",
+    "payment_result_id": "PAY-20260222095741",
+    "decision_id": "DEC-20260222095741",
+    "event_id": "EVT-31698-36605-2026-02-22T15:49:00Z",
     "provider": "stripe",
     "mode": "maneuver",
-    "status": "N/A",
+    "status": "SCHEDULED",
     "amount_usd": 5000.0,
     "currency": "USD",
     "payment_intent_id": null,
     "transaction_id": null,
-    "processed_at_utc": "2026-02-22T05:59:07Z",
-    "schema_version": "1.0.0"
+    "processed_at_utc": "2026-02-22T09:57:55Z",
+    "schema_version": "1.1.0"
   },
   "vision_report": {
-    "vision_report_id": "VR-20260222055859",
-    "event_id": "EVT-31698-36605-2026-02-23T10:46:46Z",
+    "vision_report_id": "VR-20260222095741",
+    "event_id": "EVT-31698-36605-2026-02-22T15:49:00Z",
     "provider": "gemini-2.5-flash",
     "model_version": "gemini-2.5-flash",
     "status": "ok",
@@ -170,53 +179,58 @@
       {
         "code": "EVENT_SELECTED",
         "severity": "medium",
-        "detail": "Selected event EVT-31698-36605-2026-02-23T10:46:46Z for closed-loop execution."
+        "detail": "Selected event EVT-31698-36605-2026-02-22T15:49:00Z for closed-loop execution."
       }
     ],
-    "generated_at_utc": "2026-02-22T05:59:07Z",
-    "schema_version": "1.0.0"
+    "generated_at_utc": "2026-02-22T09:57:55Z",
+    "schema_version": "1.1.0"
   },
   "earth_impact": {
-    "impact_score": 0.1,
-    "ground_lat": -74.6606,
-    "ground_lon": -159.5474,
-    "nearest_zone": "Canberra DSN",
-    "zone_category": "ground_stations",
-    "zone_distance_km": 5132.1,
+    "impact_score": 0.064,
+    "ground_lat": -16.6815,
+    "ground_lon": 92.6636,
+    "nearest_zone": "Strait of Malacca",
+    "zone_category": "shipping_corridors",
+    "zone_distance_km": 2343.2,
     "method": "ecef_snapshot",
     "components": {
-      "infra": 0.0,
-      "population": 0.15,
+      "infra": 0.005,
+      "population": 0.02,
       "orbital": 0.55
     }
   },
-  "expected_loss_adjusted_usd": 889967.5476675985,
+  "expected_loss_adjusted_usd": 832337.822693037,
+  "decision_mode": "MANEUVER",
+  "trend_metrics": {},
+  "defer_until_utc": null,
+  "maneuver_plan": null,
   "voice": {
     "provider": "elevenlabs",
-    "status": "skipped",
+    "status": "error",
     "audio_url": null,
-    "script_text": "AstraGuard briefing. Collision probability 3.71e-03 with miss distance 90 meters. Earth impact score 10% near Canberra DSN. Adjusted expected loss $889,968. Decision: MANEUVER. Premium $14832.79. ROI 178.0x. Provider: gemini."
+    "script_text": "AstraGuard briefing. Collision probability 3.69e-03 with miss distance 94 meters. Earth impact score 6% near Strait of Malacca. Adjusted expected loss $832,338. Decision: MANEUVER. Action cost $5000.00. ROI 166.5x. Provider: gemini."
   },
   "refs": {
     "top_conjunctions_path": "data/processed/top_conjunctions.json",
-    "cesium_snapshot_path": "data/processed/cesium_orbits_snapshot.json"
+    "cesium_snapshot_path": "data/processed/cesium_orbits_snapshot.json",
+    "maneuver_plans_path": "data/processed/maneuver_plans.json"
   },
   "ledger": {
     "path": "/Users/antonioaciob/Desktop/Antlikeswinninghackeurope/astragaurd/data/processed/agent_ledger.jsonl",
     "summary_path": "/Users/antonioaciob/Desktop/Antlikeswinninghackeurope/astragaurd/data/processed/agent_ledger_summary.json",
     "summary": {
-      "runs": 9,
-      "total_cost_usd": 94163.95000000001,
-      "total_value_usd": 6971412.456729522,
-      "net_value_usd": 6877248.506729522,
-      "avg_roi": 100.2936566411949,
-      "total_llm_cost_usd": 0.00028589999999999996,
-      "total_llm_tokens": 6635.0,
-      "avg_llm_cost_usd_per_run": 3.176666666666666e-05,
-      "updated_at_utc": "2026-02-22T05:59:07Z"
+      "runs": 49,
+      "total_cost_usd": 214992.85,
+      "total_value_usd": 28823390.853001896,
+      "net_value_usd": 28608398.003001895,
+      "avg_roi": 145.07554777287373,
+      "total_llm_cost_usd": 0.003309000000000001,
+      "total_llm_tokens": 77291.0,
+      "avg_llm_cost_usd_per_run": 6.753061224489798e-05,
+      "updated_at_utc": "2026-02-22T09:57:55Z"
     }
   },
   "errors": [],
   "model_version": "autonomy_loop_v1",
-  "schema_version": "1.0.0"
+  "schema_version": "1.1.0"
 }

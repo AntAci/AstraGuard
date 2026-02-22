@@ -72,6 +72,7 @@ _CATEGORY_WEIGHTS: Dict[str, float] = {
 }
 
 # Latitude-band population density buckets (abs_lat_min, abs_lat_max, density_score)
+# These are calibrated for land-dominated latitude bands.
 _POPULATION_BANDS: List[Tuple[float, float, float]] = [
     (0, 10, 0.45),
     (10, 25, 0.70),
@@ -79,6 +80,22 @@ _POPULATION_BANDS: List[Tuple[float, float, float]] = [
     (45, 60, 0.55),
     (60, 90, 0.15),
 ]
+
+# Confirmed open-ocean zones: (center_lat, center_lon, radius_km).
+# Points inside these circles are classified as open ocean regardless of latitude band.
+# Radii are deliberately conservative — coastal and island areas fall back to band model.
+_OCEAN_ZONES: List[Tuple[float, float, float]] = [
+    (-20.0,  80.0, 2500.0),   # Central Indian Ocean
+    ( 10.0, 160.0, 3000.0),   # Western Pacific
+    (  0.0, -140.0, 4000.0),  # Eastern Pacific
+    (-20.0, -25.0, 3000.0),   # South Atlantic
+    ( 35.0, -40.0, 2500.0),   # North Atlantic
+    (-60.0,   0.0, 5500.0),   # Southern Ocean (circumpolar)
+    ( 80.0,   0.0, 3000.0),   # Arctic Ocean
+    (-10.0, -25.0, 2000.0),   # Equatorial Atlantic
+]
+
+_OCEAN_POPULATION_SCORE = 0.02
 
 # Orbital density by altitude band (alt_min_km, alt_max_km, density_score)
 _ORBITAL_DENSITY_BANDS: List[Tuple[float, float, float]] = [
@@ -144,8 +161,18 @@ def _infra_proximity_score(lat: float, lon: float) -> Tuple[float, Optional[str]
     return min(best_score, 1.0), best_zone, best_cat, best_dist
 
 
-def _population_band_score(lat: float) -> float:
-    """Latitude-band population density estimate."""
+def _is_open_ocean(lat: float, lon: float) -> bool:
+    """Return True if the point lies within a confirmed open-ocean zone."""
+    for center_lat, center_lon, radius_km in _OCEAN_ZONES:
+        if haversine_km(lat, lon, center_lat, center_lon) <= radius_km:
+            return True
+    return False
+
+
+def _population_band_score(lat: float, lon: float) -> float:
+    """Population density estimate. Returns near-zero for open-ocean positions."""
+    if _is_open_ocean(lat, lon):
+        return _OCEAN_POPULATION_SCORE
     abs_lat = abs(lat)
     for lat_min, lat_max, density in _POPULATION_BANDS:
         if lat_min <= abs_lat < lat_max:
@@ -193,7 +220,7 @@ def compute_impact_score(event: Dict[str, Any], cesium_snapshot: Optional[Dict[s
     lat, lon, alt_km, method = _ground_point_from_event(event, cesium_snapshot)
 
     infra, nearest_zone, zone_category, zone_distance_km = _infra_proximity_score(lat, lon)
-    population = _population_band_score(lat)
+    population = _population_band_score(lat, lon)
     orbital = _orbital_density_score(alt_km)
 
     impact_score = 0.6 * infra + 0.3 * population + 0.1 * orbital

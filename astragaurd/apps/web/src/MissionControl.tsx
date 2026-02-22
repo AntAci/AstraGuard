@@ -9,6 +9,7 @@ import {
   getTopConjunctions,
   getCesiumSnapshot,
   runAutonomyLoop,
+  isDemoMode,
 } from './lib/api'
 import CesiumGlobe from './components/CesiumGlobe'
 import EventList from './components/EventList'
@@ -49,6 +50,28 @@ function inferRiskTier(probability: number): string {
   if (probability >= 1e-4) return 'HIGH'
   if (probability >= 1e-5) return 'MEDIUM'
   return 'LOW'
+}
+
+function formatTcaShort(utc: string): string {
+  const parsed = Date.parse(utc)
+  if (!Number.isFinite(parsed)) return 'N/A'
+  return new Date(parsed).toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatTimeUntil(utc: string): string {
+  const parsed = Date.parse(utc)
+  if (!Number.isFinite(parsed)) return 'N/A'
+  const deltaMinutes = Math.round((parsed - Date.now()) / 60000)
+  if (deltaMinutes <= 0) return 'now'
+  if (deltaMinutes < 60) return `in ${deltaMinutes}m`
+  const hours = Math.floor(deltaMinutes / 60)
+  const mins = deltaMinutes % 60
+  return mins > 0 ? `in ${hours}h ${mins}m` : `in ${hours}h`
 }
 
 function normalizeConjunctionEvents(rawEvents: unknown[], snapshot: CesiumSnapshot): ConjunctionEvent[] {
@@ -120,49 +143,51 @@ export default function MissionControl() {
   const [loadingMessage, setLoadingMessage] = useState('Connecting to API...')
   const [error, setError] = useState<string | null>(null)
   const [isRunning, setIsRunning] = useState(false)
+  const [autonomyError, setAutonomyError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [showContinents, setShowContinents] = useState(true)
 
   // Initial data load
   useEffect(() => {
     let cancelled = false
-      ; (async () => {
-        try {
-          setLoadingMessage('Connecting to API...')
-          await getArtifactsLatest()
-          if (cancelled) return
+    ;(async () => {
+      try {
+        setLoadingMessage(isDemoMode ? 'Loading demo scenario...' : 'Connecting to API...')
+        await getArtifactsLatest()
+        if (cancelled) return
 
-          setLoadingMessage('Loading orbits and conjunctions...')
-          const [conjData, snapData] = await Promise.all([
-            getTopConjunctions(true),
-            getCesiumSnapshot(),
-          ])
-          if (cancelled) return
+        setLoadingMessage(isDemoMode ? 'Preparing optimized demo data...' : 'Loading orbits and conjunctions...')
+        const [conjData, snapData] = await Promise.all([
+          getTopConjunctions(true),
+          getCesiumSnapshot(),
+        ])
+        if (cancelled) return
 
-          const rawEvents = Array.isArray((conjData as { events?: unknown[] }).events)
-            ? (conjData as { events: unknown[] }).events
-            : []
-          setEvents(normalizeConjunctionEvents(rawEvents, snapData))
-          setSnapshot(snapData)
-          setIsLoading(false)
-        } catch (err) {
-          if (cancelled) return
-          const msg = err instanceof Error ? err.message : String(err)
-          if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('502') || msg.includes('404')) {
-            setError('offline')
-          } else if (msg.includes('ARTIFACTS') || msg.includes('404')) {
-            setError('artifacts')
-          } else {
-            setError(msg)
-          }
-          setIsLoading(false)
+        const rawEvents = Array.isArray((conjData as { events?: unknown[] }).events)
+          ? (conjData as { events: unknown[] }).events
+          : []
+        setEvents(normalizeConjunctionEvents(rawEvents, snapData))
+        setSnapshot(snapData)
+        setIsLoading(false)
+      } catch (err) {
+        if (cancelled) return
+        const msg = err instanceof Error ? err.message : String(err)
+        if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('502') || msg.includes('404')) {
+          setError('offline')
+        } else if (msg.includes('ARTIFACTS') || msg.includes('404')) {
+          setError('artifacts')
+        } else {
+          setError(msg)
         }
-      })()
+        setIsLoading(false)
+      }
+    })()
     return () => { cancelled = true }
   }, [])
 
   const handleRunAutonomy = useCallback(async () => {
     setIsRunning(true)
+    setAutonomyError(null)
     try {
       const result = await runAutonomyLoop(selectedEvent?.event_id ?? null)
       setAutonomyResult(result)
@@ -171,8 +196,15 @@ export default function MissionControl() {
       const selectedId = result.result.selected_event_id
       const matchedEvent = events.find((e) => e.event_id === selectedId)
       if (matchedEvent) setSelectedEvent(matchedEvent)
-    } catch (_err) {
-      // Errors are handled by the panel state; no mission log is displayed.
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      if (message.includes('CONSULTANT_UNAVAILABLE')) {
+        setAutonomyError('Consultant unavailable. Set ANTHROPIC_API_KEY or GEMINI_API_KEY and retry.')
+      } else if (message.includes('CONSULTANT_INVALID_OUTPUT')) {
+        setAutonomyError('Consultant returned invalid structured output. Retry the run or switch model provider.')
+      } else {
+        setAutonomyError(message)
+      }
     } finally {
       setIsRunning(false)
     }
@@ -184,6 +216,27 @@ export default function MissionControl() {
       setTimeout(() => setCopied(false), 2000)
     })
   }
+
+  const maneuverCandidateCount = events.filter((event) => event.decision_mode_hint === 'MANEUVER').length
+  const deferCandidateCount = events.filter((event) => event.decision_mode_hint === 'DEFER').length
+  const closestMissMeters = events.reduce(
+    (min, event) => Math.min(min, event.miss_distance_m),
+    Number.POSITIVE_INFINITY
+  )
+  const closestMissText = Number.isFinite(closestMissMeters)
+    ? `${(closestMissMeters / 1000).toFixed(2)} km`
+    : 'N/A'
+  const soonestEvent = events.reduce<ConjunctionEvent | null>((earliest, event) => {
+    if (!earliest) return event
+    return Date.parse(event.tca_utc) < Date.parse(earliest.tca_utc) ? event : earliest
+  }, null)
+  const soonestTcaText = soonestEvent ? `${formatTcaShort(soonestEvent.tca_utc)} (${formatTimeUntil(soonestEvent.tca_utc)})` : 'N/A'
+  const highestRisk = events.reduce((max, event) => Math.max(max, event.pc_assumed), 0)
+  const highestRiskText = highestRisk >= 1e-4
+    ? `${(highestRisk * 100).toFixed(2)}%`
+    : highestRisk > 0
+      ? highestRisk.toExponential(2)
+      : 'N/A'
 
   // ── Error states ────────────────────────────────────────────────────────────
   if (error === 'offline') {
@@ -254,17 +307,38 @@ export default function MissionControl() {
           background: 'var(--bg-card)',
           boxShadow: 'var(--shadow-soft)',
         }}>
-          <div style={{
-            fontSize: 17,
-            fontWeight: 700,
-            color: 'var(--text-strong)',
-            letterSpacing: '0.07em',
-            fontFamily: 'var(--font-label)',
-          }}>
-            ASTRAGAURD
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{
+              fontSize: 17,
+              fontWeight: 700,
+              color: 'var(--text-strong)',
+              letterSpacing: '0.07em',
+              fontFamily: 'var(--font-label)',
+            }}>
+              ASTRAGAURD
+            </div>
+            <span className={`badge ${isDemoMode ? 'badge-DEFER' : 'badge-IGNORE'}`}>
+              {isDemoMode ? 'DEMO' : 'LIVE'}
+            </span>
           </div>
           <div style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.08em', marginTop: 2 }}>
-            SPACE RISK OPERATIONS
+            MANEUVER OPTIMIZATION CONSOLE
+          </div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 10, marginTop: 5, lineHeight: 1.4 }}>
+            Objective: minimize recurring conjunction response cost without weakening safety thresholds.
+          </div>
+        </div>
+        <div className="panel" style={{ padding: '10px 12px' }}>
+          <div style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.1em', marginBottom: 8 }}>
+            QUICK METRICS
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <MetricTile label="Events" value={String(events.length)} />
+            <MetricTile label="Maneuver" value={String(maneuverCandidateCount)} color="var(--red)" />
+            <MetricTile label="Defer" value={String(deferCandidateCount)} color="var(--yellow)" />
+            <MetricTile label="Closest Miss" value={closestMissText} />
+            <MetricTile label="Soonest TCA" value={soonestTcaText} wide />
+            <MetricTile label="Peak Risk" value={highestRiskText} wide color="var(--accent-primary)" />
           </div>
         </div>
         <div style={{
@@ -332,9 +406,39 @@ export default function MissionControl() {
           result={autonomyResult}
           selectedEvent={selectedEvent}
           isRunning={isRunning}
+          runError={autonomyError}
           onRun={handleRunAutonomy}
         />
       </div>
+    </div>
+  )
+}
+
+function MetricTile({
+  label,
+  value,
+  color = 'var(--text-primary)',
+  wide = false,
+}: {
+  label: string
+  value: string
+  color?: string
+  wide?: boolean
+}) {
+  return (
+    <div
+      style={{
+        padding: '8px 10px',
+        borderRadius: 8,
+        background: 'var(--bg-muted)',
+        border: '1px solid var(--border-subtle)',
+        gridColumn: wide ? '1 / -1' : undefined,
+      }}
+    >
+      <div style={{ color: 'var(--text-muted)', fontSize: 9, letterSpacing: '0.08em', marginBottom: 3 }}>
+        {label.toUpperCase()}
+      </div>
+      <div style={{ color, fontSize: 12, fontWeight: 700, lineHeight: 1.35 }}>{value}</div>
     </div>
   )
 }

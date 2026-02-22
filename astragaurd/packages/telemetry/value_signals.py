@@ -66,7 +66,7 @@ def compute_value_signal(
         "roi": roi,
         "stripe_status": payment_obj.get("status"),
         "stripe_id": payment_obj.get("id"),
-        "llm_provider": decision.get("llm_provider", "fallback"),
+        "llm_provider": decision.get("llm_provider", "unknown"),
         "llm_cost_usd": llm_cost_usd,
         "llm_input_tokens": llm_input_tokens,
         "llm_output_tokens": llm_output_tokens,

@@ -18,6 +18,17 @@ npm run dev
 # → http://localhost:5173
 ```
 
+## Demo Mode (No API Required)
+
+Run the UI with curated hackathon demo data:
+
+```bash
+cd astragaurd/apps/web
+VITE_DEMO_MODE=1 npm run dev
+```
+
+In demo mode, the app serves deterministic conjunction events, maneuver/defer recommendations, and autonomy results directly in the frontend so you can present a stable storyline.
+
 ## Features
 
 - Light, high-clarity dashboard shell with restrained deep-blue + teal accents
