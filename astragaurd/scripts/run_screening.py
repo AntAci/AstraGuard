@@ -247,6 +247,70 @@ def _build_snapshot(
     return snapshot
 
 
+def _balanced_snapshot_indices(
+    valid_tles,
+    seed: int,
+    active_target: int,
+    debris_target: int,
+    max_total: int,
+    required_norad_ids: Optional[set] = None,
+) -> List[int]:
+    required_norad_ids = required_norad_ids or set()
+    active_indices: List[int] = []
+    debris_indices: List[int] = []
+    required_indices: List[int] = []
+
+    for idx, tle in enumerate(valid_tles):
+        group = str(tle.source_group).upper()
+        is_active = group == "ACTIVE"
+        if is_active:
+            active_indices.append(idx)
+        else:
+            debris_indices.append(idx)
+        if int(tle.norad_id) in required_norad_ids:
+            required_indices.append(idx)
+
+    required_set = set(required_indices)
+    active_required = [i for i in required_indices if i in active_indices]
+    debris_required = [i for i in required_indices if i in debris_indices]
+
+    active_pool = [i for i in active_indices if i not in required_set]
+    debris_pool = [i for i in debris_indices if i not in required_set]
+
+    rng = np.random.default_rng(int(seed))
+
+    active_take = max(0, min(int(active_target) - len(active_required), len(active_pool)))
+    debris_take = max(0, min(int(debris_target) - len(debris_required), len(debris_pool)))
+
+    sampled_active = (
+        rng.choice(active_pool, size=active_take, replace=False).tolist()
+        if active_take > 0
+        else []
+    )
+    sampled_debris = (
+        rng.choice(debris_pool, size=debris_take, replace=False).tolist()
+        if debris_take > 0
+        else []
+    )
+
+    combined = required_indices + sampled_active + sampled_debris
+
+    if max_total and len(combined) > int(max_total):
+        if len(required_indices) > int(max_total):
+            print(
+                "[WARN] snapshot-max is smaller than required event objects; "
+                "expanding snapshot to include required ids."
+            )
+            max_total = len(required_indices)
+        remaining_slots = int(max_total) - len(required_indices)
+        extra_pool = [i for i in combined if i not in required_set]
+        rng.shuffle(extra_pool)
+        combined = required_indices + extra_pool[: max(0, remaining_slots)]
+
+    rng.shuffle(combined)
+    return combined
+
+
 def _write_snapshot(processed_dir: Path, snapshot: CesiumSnapshot) -> Path:
     snapshot_path = processed_dir / "cesium_orbits_snapshot.json"
     _write_json(snapshot_path, snapshot.to_dict())
@@ -320,6 +384,11 @@ def main() -> int:
     parser.add_argument("--top-k", type=int, default=20)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--snapshot-downsample", type=int, default=3)
+    parser.add_argument("--snapshot-balanced", dest="snapshot_balanced", action="store_true", default=True)
+    parser.add_argument("--no-snapshot-balanced", dest="snapshot_balanced", action="store_false")
+    parser.add_argument("--snapshot-active", type=int, default=1000)
+    parser.add_argument("--snapshot-debris", type=int, default=1000)
+    parser.add_argument("--snapshot-max", type=int, default=2000)
     args = parser.parse_args()
 
     groups = _normalize_groups(args.groups)
@@ -369,17 +438,8 @@ def main() -> int:
         print("[ERROR] No valid propagated objects available.")
         return 1
 
-    stage_start = time.time()
-    snapshot = _build_snapshot(
-        generated_at_utc=generated_at_utc,
-        times_utc=times_utc,
-        positions_km=positions_km,
-        valid_tles=valid_tles,
-        dt_s=args.dt,
-        downsample_step=max(1, int(args.snapshot_downsample)),
-    )
-    cesium_snapshot_path = _write_snapshot(processed_dir, snapshot)
-    print(f"[INFO] Stage build_snapshot took {time.time() - stage_start:.2f}s")
+    downsample_step = max(1, int(args.snapshot_downsample))
+    snapshot_times_utc = [_iso_utc(ts) for ts in list(times_utc)[::downsample_step]]
 
     stage_start = time.time()
     candidate_stream = candidate_pairs_by_timestep(positions_km=positions_km, voxel_km=args.voxel_km)
@@ -436,7 +496,7 @@ def main() -> int:
         risk_score = pc
 
         tca_utc = str(row["tca_utc"])
-        tca_idx = _nearest_time_index(tca_utc, snapshot.times_utc)
+        tca_idx = _nearest_time_index(tca_utc, snapshot_times_utc)
 
         event = ConjunctionEvent(
             event_id=f"EVT-{primary_id}-{secondary_id}-{tca_utc}",
@@ -456,9 +516,45 @@ def main() -> int:
         events.append(event)
 
     events.sort(key=lambda e: (-e.risk_score, e.miss_distance_m))
-    events = _validate_event_links(events, snapshot)
     top_events = events[: max(0, int(args.top_k))]
     print(f"[INFO] Stage risk_scoring took {time.time() - stage_start:.2f}s")
+
+    required_norads = {e.primary_id for e in top_events} | {e.secondary_id for e in top_events}
+    snapshot_valid_tles = valid_tles
+    snapshot_positions_km = positions_km
+    if args.snapshot_balanced:
+        selected_idx = _balanced_snapshot_indices(
+            valid_tles=valid_tles,
+            seed=args.seed,
+            active_target=args.snapshot_active,
+            debris_target=args.snapshot_debris,
+            max_total=args.snapshot_max,
+            required_norad_ids=required_norads,
+        )
+        snapshot_valid_tles = [valid_tles[i] for i in selected_idx]
+        snapshot_positions_km = positions_km[:, selected_idx, :]
+        active_count = sum(1 for tle in snapshot_valid_tles if str(tle.source_group).upper() == "ACTIVE")
+        debris_count = len(snapshot_valid_tles) - active_count
+        print(
+            "[INFO] Snapshot composition: "
+            f"ACTIVE={active_count}, DEBRIS={debris_count}, TOTAL={len(snapshot_valid_tles)} (balanced)"
+        )
+    else:
+        print(f"[INFO] Snapshot composition: TOTAL={len(snapshot_valid_tles)} (unbalanced)")
+
+    stage_start = time.time()
+    snapshot = _build_snapshot(
+        generated_at_utc=generated_at_utc,
+        times_utc=times_utc,
+        positions_km=snapshot_positions_km,
+        valid_tles=snapshot_valid_tles,
+        dt_s=args.dt,
+        downsample_step=downsample_step,
+    )
+    events = _validate_event_links(events, snapshot)
+    top_events = events[: max(0, int(args.top_k))]
+    cesium_snapshot_path = _write_snapshot(processed_dir, snapshot)
+    print(f"[INFO] Stage build_snapshot took {time.time() - stage_start:.2f}s")
 
     top_conjunctions_path = _write_top_outputs(processed_dir, top_events, generated_at_utc)
     _write_artifacts_latest(

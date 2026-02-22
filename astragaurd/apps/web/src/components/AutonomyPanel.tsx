@@ -125,10 +125,13 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                   VALUE SIGNAL
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <ValueMetric label="ROI Ratio" value={`${value.roi_ratio.toFixed(1)}x`} color="var(--green)" />
-                  <ValueMetric label="Loss Avoided" value={`$${(value.estimated_loss_avoided_usd / 1000).toFixed(0)}K`} />
-                  <ValueMetric label="Cost" value={`$${value.intervention_cost_usd.toFixed(0)}`} />
-                  <ValueMetric label="Confidence" value={`${Math.round(value.confidence * 100)}%`} />
+                  <ValueMetric label="ROI Ratio" value={`${(value.roi_ratio ?? 0).toFixed(1)}x`} color="var(--green)" />
+                  <ValueMetric label="Loss Avoided" value={`$${(((value.estimated_loss_avoided_usd ?? 0) as number) / 1000).toFixed(0)}K`} />
+                  <ValueMetric
+                    label="Cost"
+                    value={`$${((value as unknown as { intervention_cost_usd?: number }).intervention_cost_usd ?? (value as unknown as { estimated_cost_usd?: number }).estimated_cost_usd ?? 0).toFixed(0)}`}
+                  />
+                  <ValueMetric label="Confidence" value={`${Math.round((value.confidence ?? 0) * 100)}%`} />
                 </div>
               </div>
             )}

@@ -1,27 +1,27 @@
 {
-  "generated_at_utc": "2026-02-22T02:34:14Z",
-  "latest_run_id": "RUN-20260222023414",
+  "generated_at_utc": "2026-02-22T03:02:33Z",
+  "latest_run_id": "RUN-20260222030233",
   "artifacts": {
     "top_conjunctions": {
       "path": "data/processed/top_conjunctions.json",
       "schema_version": "1.0.0",
       "model_version": "step2_v1_assumed_covariance",
-      "sha256": "78f6d5661e8817dd6451b7e721bc9567676009b9898680851706e426d5a8b154",
-      "generated_at_utc": "2026-02-22T01:02:17Z"
+      "sha256": "0f8d25e3d938349a8b1996a22a9a787540cf039e0d3afd547613f518641a366f",
+      "generated_at_utc": "2026-02-22T02:46:46Z"
     },
     "cesium_snapshot": {
       "path": "data/processed/cesium_orbits_snapshot.json",
       "schema_version": "1.0.0",
       "model_version": "step2_v1_assumed_covariance",
-      "sha256": "04a462810189a7413593d04bd3a8130b86c6530b5f99d86ccc0bab6b3e9131a5",
-      "generated_at_utc": "2026-02-22T01:02:17Z"
+      "sha256": "c9b48ae8c9dcae52989ccc62887303a44ab7f19eeebabaeaf7071efee5b80931",
+      "generated_at_utc": "2026-02-22T02:46:46Z"
     },
     "autonomy_run_result": {
       "path": "data/processed/autonomy_run_result_latest.json",
       "schema_version": "1.0.0",
       "model_version": "autonomy_loop_v1",
-      "sha256": "6fa8140a80f907f033cc7a9467bc3a3ce96b6dfdd299559da17edcccc3859703",
-      "generated_at_utc": "2026-02-22T02:34:14Z"
+      "sha256": "1ce0b1240b043c136fdc5e4fb918878b4ac7dfc0c4b0a1d52c869da4de2cbc70",
+      "generated_at_utc": "2026-02-22T03:02:33Z"
     }
   },
   "schema_version": "1.0.0"
