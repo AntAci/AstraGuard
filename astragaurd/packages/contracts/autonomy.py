@@ -56,6 +56,12 @@ class ConsultantDecision:
     rationale: str
     recommended_actions: List[str]
     generated_at_utc: str
+    llm_provider: Optional[str] = None
+    expected_loss_usd: Optional[float] = None
+    var_usd: Optional[float] = None
+    llm_usage: Optional[Dict[str, Any]] = None
+    llm_cost_usd: Optional[float] = None
+    llm_observability: Optional[Dict[str, Any]] = None
     schema_version: str = SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
@@ -98,6 +104,21 @@ class ValueSignal:
 
 
 @dataclass
+class EarthImpact:
+    impact_score: float
+    ground_lat: float
+    ground_lon: float
+    nearest_zone: Optional[str]
+    zone_category: Optional[str]
+    zone_distance_km: Optional[float]
+    method: str
+    components: Optional[Dict[str, float]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class VoiceResult:
     provider: str
     status: str
@@ -126,6 +147,9 @@ class AutonomyRunResult:
     voice: VoiceResult
     refs: ArtifactRefs
     errors: List[str]
+    earth_impact: Optional[EarthImpact] = None
+    expected_loss_adjusted_usd: Optional[float] = None
+    llm_observability: Optional[Dict[str, Any]] = None
     model_version: str = AUTONOMY_MODEL_VERSION
     schema_version: str = SCHEMA_VERSION
 

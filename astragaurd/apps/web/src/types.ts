@@ -76,6 +76,37 @@ export interface ConsultantDecision {
   llm_provider?: 'claude' | 'gemini' | 'fallback'
   expected_loss_usd?: number
   var_usd?: number
+  llm_usage?: LLMUsage
+  llm_cost_usd?: number
+  llm_observability?: LLMObservability
+}
+
+export interface LLMUsage {
+  input_tokens: number
+  output_tokens: number
+  total_tokens: number
+  source: 'provider' | 'estimated' | 'none' | string
+}
+
+export interface LLMPricing {
+  input_per_million_usd: number
+  output_per_million_usd: number
+  estimation_mode: string
+}
+
+export interface LLMTrace {
+  trace_id: string | null
+  span_id: string | null
+}
+
+export interface LLMObservability {
+  provider: string
+  model: string
+  latency_ms: number
+  usage: LLMUsage
+  pricing: LLMPricing
+  estimated_cost_usd: number
+  trace: LLMTrace
 }
 
 export interface PaymentResult {
@@ -107,6 +138,17 @@ export interface ValueSignal {
   generated_at_utc: string
 }
 
+export interface EarthImpact {
+  impact_score: number
+  ground_lat: number
+  ground_lon: number
+  nearest_zone: string | null
+  zone_category: string | null
+  zone_distance_km: number | null
+  method: string
+  components?: { infra: number; population: number; orbital: number }
+}
+
 export interface VoiceResult {
   provider: string
   status: string
@@ -133,6 +175,7 @@ export interface AutonomyRunResult {
   premium_quote_usd?: number
   value_generated_usd?: number
   cost_usd?: number
+  llm_observability?: LLMObservability
   roi?: number
   narration_text?: string
   ledger?: Record<string, unknown>
@@ -142,6 +185,8 @@ export interface AutonomyRunResult {
   payment_result: PaymentResult
   voice: VoiceResult
   refs: ArtifactRefs
+  earth_impact?: EarthImpact
+  expected_loss_adjusted_usd?: number
   errors: string[]
   model_version: string
 }

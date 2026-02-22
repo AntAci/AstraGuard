@@ -22,8 +22,11 @@ if str(REPO_ROOT) not in sys.path:
 
 from packages.brain import consultant  # noqa: E402
 from packages.commerce import stripe_wallet  # noqa: E402
+from packages.earth.impact import compute_impact_score  # noqa: E402
+from packages.voice.elevenlabs import synthesize_speech  # noqa: E402
 from packages.contracts.manifest import ArtifactEntry, ArtifactsLatest  # noqa: E402
 from packages.contracts.versioning import AUTONOMY_MODEL_VERSION, SCHEMA_VERSION  # noqa: E402
+from packages.telemetry.phoenix import init_tracing_if_enabled  # noqa: E402
 from packages.telemetry.service import emit_event  # noqa: E402
 from packages.telemetry.value_signals import append_ledger_record, compute_value_signal, update_ledger_summary  # noqa: E402
 
@@ -63,6 +66,25 @@ def _load_dotenv_file(path: Path) -> None:
 
 
 _load_dotenv_file(REPO_ROOT / ".env")
+init_tracing_if_enabled()
+
+_CESIUM_CACHE: Optional[Dict[str, Any]] = None
+
+
+def _ensure_cesium_cache() -> Optional[Dict[str, Any]]:
+    global _CESIUM_CACHE
+    if _CESIUM_CACHE is None and CESIUM_SNAPSHOT_PATH.exists():
+        try:
+            _CESIUM_CACHE = _read_json(CESIUM_SNAPSHOT_PATH)
+            LOGGER.info("Cesium snapshot loaded into cache (%s)", CESIUM_SNAPSHOT_PATH)
+        except Exception as err:
+            LOGGER.warning("Failed to load cesium snapshot cache: %s", err)
+    return _CESIUM_CACHE
+
+
+@app.on_event("startup")
+def _startup_cache() -> None:
+    _ensure_cesium_cache()
 
 
 def _iso_utc_now() -> str:
@@ -279,17 +301,33 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
     asset_value_usd = active_value if _event_looks_active(selected_event) else debris_value
 
     premium_quote_usd = stripe_wallet.quote_premium_usd(selected_event, asset_value_usd)
+
+    # Earth impact score
+    impact_result = compute_impact_score(selected_event, _ensure_cesium_cache())
+    impact_score = _safe_float(impact_result.get("impact_score"), 0.15)
+
+    # Deterministic adjusted expected loss
+    raw_expected_loss = p_collision * asset_value_usd
+    expected_loss_adjusted = raw_expected_loss * (1 + 2 * impact_score)
+
     LOGGER.info(
-        "Economics prepared event_id=%s asset_value=%.2f premium_quote=%.2f maneuver_cost=%.2f",
+        "Economics prepared event_id=%s asset_value=%.2f premium_quote=%.2f maneuver_cost=%.2f impact=%.4f adj_loss=%.2f",
         selected_event.get("event_id"),
         asset_value_usd,
         premium_quote_usd,
         maneuver_cost_usd,
+        impact_score,
+        expected_loss_adjusted,
     )
     decision_obj = consultant.decide(
         selected_event,
-        {"asset_value_usd": asset_value_usd},
-        {"premium_quote_usd": premium_quote_usd, "maneuver_cost_usd": maneuver_cost_usd},
+        {"asset_value_usd": asset_value_usd, "impact_score": impact_score},
+        {
+            "premium_quote_usd": premium_quote_usd,
+            "maneuver_cost_usd": maneuver_cost_usd,
+            "raw_expected_loss_usd": raw_expected_loss,
+            "expected_loss_adjusted_usd": expected_loss_adjusted,
+        },
     )
     decision = str(decision_obj.get("decision", "IGNORE")).upper().strip()
     if decision not in {"IGNORE", "INSURE", "MANEUVER"}:
@@ -298,9 +336,23 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
         decision_obj["decision"] = "IGNORE"
         decision_obj["rationale"] = ["Backend normalized unsupported decision to IGNORE."]
         decision_obj["llm_provider"] = "fallback"
-    expected_loss_usd = _safe_float(decision_obj.get("expected_loss_usd"), p_collision * asset_value_usd)
+    expected_loss_usd = _safe_float(decision_obj.get("expected_loss_usd"), expected_loss_adjusted)
     decision_obj["expected_loss_usd"] = expected_loss_usd
     decision_obj["var_usd"] = _safe_float(decision_obj.get("var_usd"), expected_loss_usd)
+    llm_observability = decision_obj.get("llm_observability")
+    if not isinstance(llm_observability, dict):
+        llm_observability = {
+            "provider": str(decision_obj.get("llm_provider", "fallback")),
+            "model": _llm_model_name(str(decision_obj.get("llm_provider", "fallback"))),
+            "latency_ms": 0.0,
+            "usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "source": "none"},
+            "pricing": {"input_per_million_usd": 0.0, "output_per_million_usd": 0.0, "estimation_mode": "legacy_default"},
+            "estimated_cost_usd": _safe_float(decision_obj.get("llm_cost_usd"), 0.0),
+            "trace": {"trace_id": None, "span_id": None},
+        }
+        decision_obj["llm_observability"] = llm_observability
+    decision_obj["llm_usage"] = llm_observability.get("usage") or decision_obj.get("llm_usage", {})
+    decision_obj["llm_cost_usd"] = _safe_float(llm_observability.get("estimated_cost_usd"), decision_obj.get("llm_cost_usd", 0.0))
     LOGGER.info("Consultant decision=%s provider=%s", decision, decision_obj.get("llm_provider"))
 
     stripe_currency = os.environ.get("STRIPE_CURRENCY", "usd").lower()
@@ -330,6 +382,8 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
                 "relative_speed_mps": relative_speed_mps,
                 "asset_value_usd": asset_value_usd,
                 "expected_loss_usd": expected_loss_usd,
+                "expected_loss_adjusted_usd": expected_loss_adjusted,
+                "impact_score": impact_score,
                 "premium_usd": premium_quote_usd,
                 "llm_provider": decision_obj.get("llm_provider", "fallback"),
                 "decision": decision,
@@ -384,16 +438,21 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
     ledger_summary = update_ledger_summary(ledger_path, ledger_summary_path)
     LOGGER.info("Ledger updated path=%s runs=%s", ledger_path, ledger_summary.get("runs"))
 
+    zone_label = impact_result.get("nearest_zone") or "open ocean"
     narration_text = (
-        f"Pc={p_collision:.6g} miss={miss_distance_m:.1f}m decision={decision} "
-        f"premium=${premium_quote_usd:.2f} expected_loss=${expected_loss_usd:.2f} "
-        f"ROI={value_signal['roi']:.2f}x stripe_status={payment_obj.get('status')}"
+        f"AstraGuard briefing. Collision probability {p_collision:.2e} with miss distance "
+        f"{miss_distance_m:.0f} meters. Earth impact score {impact_score:.0%} near {zone_label}. "
+        f"Adjusted expected loss ${expected_loss_adjusted:,.0f}. Decision: {decision}. "
+        f"Premium ${premium_quote_usd:.2f}. ROI {value_signal['roi']:.1f}x. "
+        f"Provider: {decision_obj.get('llm_provider', 'fallback')}."
     )
+
+    voice_result = synthesize_speech(narration_text)
 
     completed_at = _iso_utc_now()
     top_event_ids = [event.get("event_id") for event in events[:5] if event.get("event_id")]
     llm_provider = str(decision_obj.get("llm_provider", "fallback"))
-    llm_model = _llm_model_name(llm_provider)
+    llm_model = str((llm_observability or {}).get("model", _llm_model_name(llm_provider)))
 
     legacy_consultant = {
         "decision_id": "DEC-" + run_id.split("RUN-")[1],
@@ -449,6 +508,7 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
         "premium_quote_usd": premium_quote_usd,
         "value_generated_usd": value_signal["expected_loss_avoided_usd"],
         "cost_usd": value_signal["cost_usd"],
+        "llm_observability": llm_observability,
         "roi": value_signal["roi"],
         "narration_text": narration_text,
         "consultant_decision": legacy_consultant,
@@ -472,10 +532,12 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
             "generated_at_utc": completed_at,
             "schema_version": SCHEMA_VERSION,
         },
+        "earth_impact": impact_result,
+        "expected_loss_adjusted_usd": expected_loss_adjusted,
         "voice": {
-            "provider": providers.get("voice", "voice"),
-            "status": "queued",
-            "audio_url": None,
+            "provider": voice_result.get("provider", providers.get("voice", "elevenlabs")),
+            "status": voice_result.get("status", "skipped"),
+            "audio_url": voice_result.get("audio_url"),
             "script_text": narration_text,
         },
         "refs": {
@@ -514,7 +576,16 @@ def run_autonomy_loop_internal(payload: Dict[str, Any], event_index: int = 0) ->
     )
     _write_json(ARTIFACTS_LATEST_PATH, updated_manifest.to_dict())
 
-    emit_event(PROCESSED_DIR, "run_autonomy_loop.completed", {"run_id": run_id, "event_id": event_id, "decision": decision})
+    emit_event(
+        PROCESSED_DIR,
+        "run_autonomy_loop.completed",
+        {
+            "run_id": run_id,
+            "event_id": event_id,
+            "decision": decision,
+            "llm_observability": llm_observability,
+        },
+    )
     LOGGER.info("Autonomy run completed run_id=%s event_id=%s decision=%s", run_id, event_id, decision)
 
     return {"run_id": run_id, "status": "completed", "result": result, "schema_version": SCHEMA_VERSION}

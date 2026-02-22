@@ -39,6 +39,17 @@ def compute_value_signal(
     else:
         expected_loss_avoided = 0.0
 
+    llm_observability = decision.get("llm_observability")
+    if not isinstance(llm_observability, dict):
+        llm_observability = {}
+    usage = llm_observability.get("usage")
+    if not isinstance(usage, dict):
+        usage = {}
+    llm_cost_usd = _safe_float(llm_observability.get("estimated_cost_usd"), decision.get("llm_cost_usd", 0.0))
+    llm_input_tokens = _safe_float(usage.get("input_tokens"), 0.0)
+    llm_output_tokens = _safe_float(usage.get("output_tokens"), 0.0)
+    llm_total_tokens = _safe_float(usage.get("total_tokens"), llm_input_tokens + llm_output_tokens)
+
     roi = expected_loss_avoided / max(cost, 1e-9)
     return {
         "run_id": run_id,
@@ -56,6 +67,10 @@ def compute_value_signal(
         "stripe_status": payment_obj.get("status"),
         "stripe_id": payment_obj.get("id"),
         "llm_provider": decision.get("llm_provider", "fallback"),
+        "llm_cost_usd": llm_cost_usd,
+        "llm_input_tokens": llm_input_tokens,
+        "llm_output_tokens": llm_output_tokens,
+        "llm_total_tokens": llm_total_tokens,
     }
 
 
@@ -91,6 +106,8 @@ def update_ledger_summary(ledger_path: Path, summary_path: Path) -> Dict[str, An
     runs = len(records)
     total_cost = sum(_safe_float(item.get("cost_usd"), 0.0) for item in records)
     total_value = sum(_safe_float(item.get("expected_loss_avoided_usd"), 0.0) for item in records)
+    total_llm_cost = sum(_safe_float(item.get("llm_cost_usd"), 0.0) for item in records)
+    total_llm_tokens = sum(_safe_float(item.get("llm_total_tokens"), 0.0) for item in records)
 
     roi_values = []
     for item in records:
@@ -105,6 +122,9 @@ def update_ledger_summary(ledger_path: Path, summary_path: Path) -> Dict[str, An
         "total_value_usd": total_value,
         "net_value_usd": total_value - total_cost,
         "avg_roi": avg_roi,
+        "total_llm_cost_usd": total_llm_cost,
+        "total_llm_tokens": total_llm_tokens,
+        "avg_llm_cost_usd_per_run": (total_llm_cost / runs) if runs > 0 else 0.0,
         "updated_at_utc": _iso_utc_now(),
     }
     summary_path.parent.mkdir(parents=True, exist_ok=True)

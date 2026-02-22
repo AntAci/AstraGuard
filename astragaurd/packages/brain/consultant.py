@@ -8,12 +8,16 @@ import logging
 import os
 import re
 import ssl
+import time
 import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional
 
+from packages.telemetry.llm_cost import build_llm_observability
+from packages.telemetry.phoenix import format_trace_ids, get_tracer
 
 LOGGER = logging.getLogger(__name__)
+TRACER = get_tracer(__name__)
 
 _DECISIONS = {"IGNORE", "INSURE", "MANEUVER"}
 
@@ -106,6 +110,17 @@ def _fallback_decision(
     }
 
 
+def _fallback_model_name() -> str:
+    return "fallback_policy_v1"
+
+
+def _attach_llm_observability(decision: Dict[str, Any], llm_observability: Dict[str, Any]) -> Dict[str, Any]:
+    decision["llm_usage"] = llm_observability.get("usage") or {}
+    decision["llm_cost_usd"] = _safe_float(llm_observability.get("estimated_cost_usd"), 0.0)
+    decision["llm_observability"] = llm_observability
+    return decision
+
+
 def _build_prompt(event: Dict[str, Any], economics: Dict[str, float]) -> str:
     payload = {
         "event": {
@@ -119,6 +134,9 @@ def _build_prompt(event: Dict[str, Any], economics: Dict[str, float]) -> str:
         },
         "economics": {
             "asset_value_usd": economics["asset_value_usd"],
+            "impact_score": economics.get("impact_score", 0.0),
+            "raw_expected_loss_usd": economics.get("raw_expected_loss_usd", economics["expected_loss_usd"]),
+            "expected_loss_adjusted_usd": economics.get("expected_loss_adjusted_usd", economics["expected_loss_usd"]),
             "expected_loss_usd": economics["expected_loss_usd"],
             "premium_quote_usd": economics["premium_quote_usd"],
             "maneuver_cost_usd": economics["maneuver_cost_usd"],
@@ -154,7 +172,7 @@ def _http_json(url: str, headers: Dict[str, str], body: Dict[str, Any], timeout_
     return json.loads(raw)
 
 
-def _call_claude(prompt: str, api_key: str, model: str, timeout_s: float) -> str:
+def _call_claude(prompt: str, api_key: str, model: str, timeout_s: float) -> Dict[str, Any]:
     url = "https://api.anthropic.com/v1/messages"
     headers = {
         "x-api-key": api_key,
@@ -174,10 +192,10 @@ def _call_claude(prompt: str, api_key: str, model: str, timeout_s: float) -> str
     text = "".join(part.get("text", "") for part in content if isinstance(part, dict))
     if not text:
         raise ValueError("Claude response contained empty text")
-    return text
+    return {"raw_text": text, "response_json": response}
 
 
-def _call_gemini(prompt: str, api_key: str, model: str, timeout_s: float) -> str:
+def _call_gemini(prompt: str, api_key: str, model: str, timeout_s: float) -> Dict[str, Any]:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     headers = {"content-type": "application/json"}
     body = {
@@ -193,10 +211,10 @@ def _call_gemini(prompt: str, api_key: str, model: str, timeout_s: float) -> str
     text = "".join(part.get("text", "") for part in parts if isinstance(part, dict))
     if not text:
         raise ValueError("Gemini response contained empty text")
-    return text
+    return {"raw_text": text, "response_json": response}
 
 
-def _call_provider_with_retry(provider: str, prompt: str) -> str:
+def _call_provider_with_retry(provider: str, prompt: str) -> Dict[str, Any]:
     timeout_s = _safe_float(os.environ.get("ASTRA_LLM_TIMEOUT_S"), 10.0)
     if provider == "claude":
         api_key = _anthropic_key()
@@ -217,7 +235,17 @@ def _call_provider_with_retry(provider: str, prompt: str) -> str:
     last_error: Optional[Exception] = None
     for attempt in range(1, max_attempts + 1):
         try:
-            return call()
+            started = time.perf_counter()
+            provider_result = call()
+            latency_ms = (time.perf_counter() - started) * 1000.0
+            return {
+                "provider": provider,
+                "model": model,
+                "raw_text": provider_result.get("raw_text", ""),
+                "response_json": provider_result.get("response_json"),
+                "latency_ms": latency_ms,
+                "attempt": attempt,
+            }
         except (TimeoutError, urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, ValueError) as err:
             last_error = err
             LOGGER.warning("Decision provider call failed (provider=%s, attempt=%s): %s", provider, attempt, err)
@@ -285,7 +313,8 @@ def decide(event: Dict[str, Any], asset_ctx: Dict[str, Any], cost_ctx: Dict[str,
     premium_quote_usd = _safe_float(cost_ctx.get("premium_quote_usd", 0.0))
     maneuver_cost_usd = _safe_float(cost_ctx.get("maneuver_cost_usd", 0.0))
 
-    expected_loss_usd = float(p_collision * asset_value_usd)
+    raw_expected_loss_usd = float(p_collision * asset_value_usd)
+    expected_loss_usd = _safe_float(cost_ctx.get("expected_loss_adjusted_usd"), raw_expected_loss_usd)
     var_usd = float(expected_loss_usd)
 
     economics = {
@@ -293,6 +322,9 @@ def decide(event: Dict[str, Any], asset_ctx: Dict[str, Any], cost_ctx: Dict[str,
         "miss_distance_m": miss_distance_m,
         "relative_speed_mps": relative_speed_mps,
         "asset_value_usd": asset_value_usd,
+        "impact_score": _safe_float(asset_ctx.get("impact_score"), 0.0),
+        "raw_expected_loss_usd": raw_expected_loss_usd,
+        "expected_loss_adjusted_usd": expected_loss_usd,
         "expected_loss_usd": expected_loss_usd,
         "premium_quote_usd": premium_quote_usd,
         "maneuver_cost_usd": maneuver_cost_usd,
@@ -300,41 +332,85 @@ def decide(event: Dict[str, Any], asset_ctx: Dict[str, Any], cost_ctx: Dict[str,
     prompt = _build_prompt(event, economics)
 
     provider = "fallback"
-    # Gemini is prioritized for this deployment; Claude remains a fallback provider.
-    if _gemini_key():
-        provider = "gemini"
-    elif _anthropic_key():
+    # Claude is the primary consultant; Gemini is the fallback provider.
+    if _anthropic_key():
         provider = "claude"
+    elif _gemini_key():
+        provider = "gemini"
 
     if provider == "fallback":
         LOGGER.info("Using consultant fallback decision path (no LLM keys configured)")
-        return _fallback_decision(
+        decision = _fallback_decision(
             expected_loss_usd=expected_loss_usd,
             var_usd=var_usd,
             premium_quote_usd=premium_quote_usd,
             maneuver_cost_usd=maneuver_cost_usd,
             reason="No ANTHROPIC_API_KEY or GEMINI_API_KEY configured.",
         )
+        llm_observability = build_llm_observability(
+            provider="fallback",
+            model=_fallback_model_name(),
+            prompt_text="",
+            completion_text="",
+            provider_response=None,
+            latency_ms=0.0,
+            no_llm_call=True,
+        )
+        return _attach_llm_observability(decision, llm_observability)
 
     try:
-        raw_text = _call_provider_with_retry(provider, prompt)
-        parsed = _parse_model_json(raw_text)
-        decision = _normalize_decision(
-            parsed=parsed,
-            provider=provider,
-            expected_loss_usd=expected_loss_usd,
-            var_usd=var_usd,
-            premium_quote_usd=premium_quote_usd,
-            maneuver_cost_usd=maneuver_cost_usd,
-        )
-        LOGGER.info("Consultant decision generated via %s", provider)
-        return decision
+        with TRACER.start_as_current_span("consultant.decide.llm_call") as span:
+            provider_result = _call_provider_with_retry(provider, prompt)
+            raw_text = str(provider_result.get("raw_text", ""))
+            parsed = _parse_model_json(raw_text)
+            decision = _normalize_decision(
+                parsed=parsed,
+                provider=provider,
+                expected_loss_usd=expected_loss_usd,
+                var_usd=var_usd,
+                premium_quote_usd=premium_quote_usd,
+                maneuver_cost_usd=maneuver_cost_usd,
+            )
+
+            llm_observability = build_llm_observability(
+                provider=provider,
+                model=str(provider_result.get("model", "unknown")),
+                prompt_text=prompt,
+                completion_text=raw_text,
+                provider_response=provider_result.get("response_json"),
+                latency_ms=_safe_float(provider_result.get("latency_ms"), 0.0),
+                trace=format_trace_ids(span),
+            )
+
+            span.set_attribute("llm.provider", llm_observability.get("provider"))
+            span.set_attribute("llm.model", llm_observability.get("model"))
+            span.set_attribute("llm.decision", decision.get("decision", "IGNORE"))
+            span.set_attribute("llm.latency_ms", _safe_float(llm_observability.get("latency_ms"), 0.0))
+            usage = llm_observability.get("usage") or {}
+            span.set_attribute("llm.usage.input_tokens", _safe_float(usage.get("input_tokens"), 0.0))
+            span.set_attribute("llm.usage.output_tokens", _safe_float(usage.get("output_tokens"), 0.0))
+            span.set_attribute("llm.usage.total_tokens", _safe_float(usage.get("total_tokens"), 0.0))
+            span.set_attribute("llm.usage.source", str(usage.get("source", "unknown")))
+            span.set_attribute("llm.cost.estimated_usd", _safe_float(llm_observability.get("estimated_cost_usd"), 0.0))
+
+            LOGGER.info("Consultant decision generated via %s", provider)
+            return _attach_llm_observability(decision, llm_observability)
     except Exception as err:  # broad by design to guarantee run completion
         LOGGER.exception("Consultant provider failed; switching to fallback: %s", err)
-        return _fallback_decision(
+        decision = _fallback_decision(
             expected_loss_usd=expected_loss_usd,
             var_usd=var_usd,
             premium_quote_usd=premium_quote_usd,
             maneuver_cost_usd=maneuver_cost_usd,
             reason=f"Provider failure: {type(err).__name__}: {err}",
         )
+        llm_observability = build_llm_observability(
+            provider="fallback",
+            model=_fallback_model_name(),
+            prompt_text="",
+            completion_text="",
+            provider_response=None,
+            latency_ms=0.0,
+            no_llm_call=True,
+        )
+        return _attach_llm_observability(decision, llm_observability)

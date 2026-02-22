@@ -1,8 +1,11 @@
 {
-  "runs": 5,
-  "total_cost_usd": 64331.16,
-  "total_value_usd": 3708198.1152816606,
-  "net_value_usd": 3643866.9552816604,
-  "avg_roi": 69.66559155924239,
-  "updated_at_utc": "2026-02-22T04:08:56Z"
+  "runs": 9,
+  "total_cost_usd": 94163.95000000001,
+  "total_value_usd": 6971412.456729522,
+  "net_value_usd": 6877248.506729522,
+  "avg_roi": 100.2936566411949,
+  "total_llm_cost_usd": 0.00028589999999999996,
+  "total_llm_tokens": 6635.0,
+  "avg_llm_cost_usd_per_run": 3.176666666666666e-05,
+  "updated_at_utc": "2026-02-22T05:59:07Z"
 }

@@ -1,4 +1,4 @@
-import type { RunAutonomyLoopResponse, ConjunctionEvent } from '../types'
+import type { RunAutonomyLoopResponse, ConjunctionEvent, EarthImpact } from '../types'
 
 interface Props {
   result: RunAutonomyLoopResponse | null
@@ -18,6 +18,8 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
     | { id?: string | null; checkout_url?: string | null; status?: string; mode?: string }
     | undefined
   const voice = result?.result.voice
+  const earthImpact = result?.result.earth_impact as EarthImpact | undefined
+  const adjustedLoss = result?.result.expected_loss_adjusted_usd
   const narration = result?.result.narration_text
   const decisionRationale = Array.isArray(decision?.rationale)
     ? decision.rationale.join(' ')
@@ -99,6 +101,49 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
               </div>
             </div>
 
+            {/* Earth Impact Score */}
+            {earthImpact && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.1em', marginBottom: 6 }}>
+                  EARTH IMPACT SCORE
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: '50%',
+                    background: earthImpact.impact_score > 0.5
+                      ? 'rgba(255,68,68,0.2)' : 'rgba(0,255,136,0.2)',
+                    border: `2px solid ${earthImpact.impact_score > 0.5 ? '#ff4444' : '#00ff88'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11, fontWeight: 700,
+                    color: earthImpact.impact_score > 0.5 ? '#ff4444' : '#00ff88',
+                  }}>
+                    {Math.round(earthImpact.impact_score * 100)}%
+                  </div>
+                  <div>
+                    <div style={{ color: 'var(--text-primary)', fontSize: 11, fontWeight: 600 }}>
+                      {earthImpact.impact_score > 0.7 ? 'HIGH RISK' : earthImpact.impact_score > 0.4 ? 'MODERATE' : 'LOW RISK'}
+                    </div>
+                    {earthImpact.nearest_zone && (
+                      <div style={{ color: 'var(--text-muted)', fontSize: 10 }}>
+                        Near {earthImpact.nearest_zone} ({earthImpact.zone_category?.replace(/_/g, ' ')})
+                        {earthImpact.zone_distance_km != null && ` — ${earthImpact.zone_distance_km.toFixed(0)} km`}
+                      </div>
+                    )}
+                    <div style={{ color: 'var(--text-muted)', fontSize: 9 }}>
+                      {earthImpact.ground_lat.toFixed(2)}°, {earthImpact.ground_lon.toFixed(2)}° · {earthImpact.method}
+                    </div>
+                  </div>
+                </div>
+                {earthImpact.components && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                    <ValueMetric label="Infra" value={`${(earthImpact.components.infra * 100).toFixed(0)}%`} />
+                    <ValueMetric label="Population" value={`${(earthImpact.components.population * 100).toFixed(0)}%`} />
+                    <ValueMetric label="Orbital" value={`${(earthImpact.components.orbital * 100).toFixed(0)}%`} />
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Rationale */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.1em', marginBottom: 6 }}>
@@ -154,6 +199,9 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                     value={`$${((value as unknown as { intervention_cost_usd?: number }).intervention_cost_usd ?? (value as unknown as { estimated_cost_usd?: number }).estimated_cost_usd ?? 0).toFixed(0)}`}
                   />
                   <ValueMetric label="Confidence" value={`${Math.round((value.confidence ?? 0) * 100)}%`} />
+                  {adjustedLoss != null && (
+                    <ValueMetric label="Adj. Loss" value={`$${(adjustedLoss / 1000).toFixed(0)}K`} color="var(--yellow, #ffcc00)" />
+                  )}
                 </div>
               </div>
             )}
@@ -216,6 +264,13 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                 <div style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.1em', marginBottom: 6 }}>
                   VOICE BRIEFING
                 </div>
+                {voice.audio_url && (
+                  <audio
+                    controls
+                    src={voice.audio_url}
+                    style={{ width: '100%', height: 32, marginBottom: 8 }}
+                  />
+                )}
                 <div style={{ color: 'var(--text-muted)', fontSize: 11, fontStyle: 'italic', lineHeight: 1.5 }}>
                   "{voice.script_text}"
                 </div>
