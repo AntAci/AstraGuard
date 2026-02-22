@@ -6,6 +6,20 @@ interface Props {
   onClick: () => void
 }
 
+function formatProbability(pc: number): string {
+  if (pc <= 0) return '< 1e-10'
+  if (pc < 1e-6) return pc.toExponential(1)
+  if (pc < 1e-3) return pc.toExponential(2)
+  return `${(pc * 100).toFixed(2)}%`
+}
+
+function decisionHintLabel(mode: ConjunctionEvent['decision_mode_hint']): string {
+  if (mode === 'DEFER') return 'Defer & Recheck'
+  if (mode === 'MANEUVER') return 'Avoidance Burn'
+  if (mode === 'IGNORE') return 'No Action'
+  return ''
+}
+
 const TIER_COLOR: Record<string, string> = {
   CRITICAL: 'var(--red)',
   HIGH: 'var(--orange)',
@@ -34,9 +48,7 @@ export default function EventCard({ event, selected, onClick }: Props) {
   const primaryLabel = event.primary_name?.trim() || `Object ${event.primary_norad_id}`
   const secondaryLabel = event.secondary_name?.trim() || `Object ${event.secondary_norad_id}`
   const distKm = (event.miss_distance_m / 1000).toFixed(1)
-  const pcExp = event.pc_assumed > 0
-    ? `1e${Math.round(Math.log10(event.pc_assumed))}`
-    : '< 1e-10'
+  const pcExp = formatProbability(event.pc_assumed)
   const decisionHint = event.decision_mode_hint ?? null
   const badgeClass = decisionHint
     ? `badge-${decisionHint}`
@@ -44,6 +56,7 @@ export default function EventCard({ event, selected, onClick }: Props) {
   const badgeText = decisionHint === 'MANEUVER' && typeof event.plan_delta_v_mps === 'number'
     ? `MANEUVER ${event.plan_delta_v_mps.toFixed(3)}m/s`
     : (decisionHint ?? event.risk_tier)
+  const actionText = decisionHintLabel(decisionHint)
 
   return (
     <div
@@ -87,6 +100,11 @@ export default function EventCard({ event, selected, onClick }: Props) {
       <div style={{ color: 'var(--text-muted)', fontSize: 10, marginTop: 4 }}>
         TCA: {event.tca_utc.replace('T', ' ').replace('Z', ' UTC')}
       </div>
+      {actionText && (
+        <div style={{ color: 'var(--text-primary)', fontSize: 10, marginTop: 2 }}>
+          Action: {actionText}
+        </div>
+      )}
       {decisionHint === 'DEFER' && event.defer_until_utc && (
         <div style={{ color: 'var(--yellow)', fontSize: 10, marginTop: 2 }}>
           Defer until: {event.defer_until_utc.replace('T', ' ').replace('Z', ' UTC')}

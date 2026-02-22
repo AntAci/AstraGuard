@@ -1,6 +1,16 @@
 # AstraGuard
 
-Autonomous orbital risk operations stack: ingest TLEs, screen conjunction risk, run an AI decision loop (IGNORE/INSURE/MANEUVER), and visualize everything in a mission-control frontend.
+Autonomous maneuver-tax optimization stack: ingest TLEs, screen conjunction risk, run a deterministic decision loop (IGNORE/DEFER/INSURE/MANEUVER), and minimize recurring operations cost with auditable economics.
+
+## Business Model (2026 Pivot)
+
+AstraGuard is positioned as an **operations-cost optimization platform** for satellite operators, not only a catastrophic-collision alerting tool.
+
+- **Core value promise:** reduce recurring conjunction-response cost (unnecessary burns, fuel depletion, schedule disruption).
+- **Primary KPI:** maneuver tax avoided and delta-v saved per operator fleet.
+- **Commercial model:** software subscription + usage tiering by monitored spacecraft / autonomy runs.
+- **Buyer:** mission operations teams and constellation risk owners who need deterministic, explainable action policies.
+- **Product wedge:** trend-gated defer + minimum-delta-v planning with an auditable ledger and API-first integration.
 
 ## Problem Context (Why This Matters)
 
@@ -12,11 +22,11 @@ Orbital risk is no longer theoretical; congestion and debris growth now create a
 - In **2024 alone**, major and minor fragmentation events added **at least 3,000 tracked objects** (ESA Space Environment Report 2025).
 - U.S. Space Force 18th SDS reports tracking **>47,000** man-made objects via Space-Track, underscoring global SSA workload at scale.
 
-These are exactly the conditions AstraGuard targets: high-volume conjunction screening, decision support under uncertainty, and fast operational response.
+These are exactly the conditions AstraGuard targets: high-volume conjunction screening, deterministic cost-aware decisioning, and fast operational response.
 
 ### Why Now (2026)
 
-The market has crossed a practical tipping point: object counts are rising, fragmentation is compounding, and operators now face recurring conjunction decisions under tight time windows. AstraGuard is built for this exact operating regime: automate screening, prioritize the highest-risk events, and turn analysis into action (monitor, insure, maneuver) with auditable economics and operator-ready UX.
+The market has crossed a practical tipping point: object counts are rising, fragmentation is compounding, and operators now face recurring conjunction decisions under tight time windows. AstraGuard is built for this operating regime: automate screening, suppress spiky false positives, and optimize action economics (ignore, defer, insure, maneuver) with auditable operator-ready UX.
 
 ### Sources
 
@@ -29,7 +39,11 @@ The market has crossed a practical tipping point: object counts are rising, frag
 - TLE ingest from CelesTrak into SQLite (`data/processed/tles.sqlite`)
 - 72h conjunction screening with SGP4 propagation + coarse/fine refinement
 - Ranked risk artifacts (`top_conjunctions.json/.csv`)
+- Trend-gated local risk analysis around TCA (`pc_series`, peak/slope/stability metrics)
+- First-class `DEFER` windowing for non-sustained or too-early risk profiles
+- Deterministic maneuver planner (timing + RTN direction) selecting minimum feasible delta-v
 - Cesium-ready ECEF snapshot export (`cesium_orbits_snapshot.json`)
+- Maneuver planning artifact export (`maneuver_plans.json`)
 - Contract-locked artifact manifest (`artifacts_latest.json`)
 - FastAPI autonomy loop with:
   - LLM consultant (Claude/Gemini + deterministic fallback)
@@ -48,11 +62,13 @@ The market has crossed a practical tipping point: object counts are rising, frag
   - coarse sweep on propagated states
   - local high-resolution TCA refinement with smaller `dt_refine_s` (`packages/orbit/conjunction.py`).
 - **Probabilistic risk scoring** using encounter probability assumptions (`pc_assumed`) and pairwise sigma modeling (`packages/orbit/risk.py`).
+- **Trend-gated risk classification** from local Pc time-series around TCA with `DEFER`/`MANEUVER` gating (`packages/orbit/trend.py`).
+- **Minimal delta-v maneuver optimization** across candidate burn times and RTN directions (`packages/orbit/maneuver.py`).
 - **ECI -> ECEF frame transform** using GMST for Cesium-compatible globe rendering (`scripts/run_screening.py`).
 - **Contract-first artifact pipeline** with schema/model versioning and manifest-addressable outputs (`packages/contracts/*`, `artifacts_latest.json`).
-- **Hybrid autonomy policy**: LLM consultant (Claude/Gemini) with deterministic fallback guardrail path (`apps/api/main.py`, `packages/brain/consultant.py`).
+- **Hybrid autonomy policy**: deterministic decision mode with LLM rationale/fallback support (`apps/api/main.py`, `packages/brain/consultant.py`).
 - **Earth-impact scoring** to adjust expected loss with geospatial context (`packages/earth/impact.py`).
-- **Commerce + policy controls** for insurance checkout / maneuver economics with ROI and ledger telemetry (`packages/commerce/*`, `packages/telemetry/*`).
+- **Commerce + policy controls** for insurance checkout and maneuver-tax economics with ROI and ledger telemetry (`packages/commerce/*`, `packages/telemetry/*`).
 - **Operational observability** via structured event telemetry, value signals, and optional OTLP/Phoenix tracing (`packages/telemetry/*`).
 
 ## Conjunction Events: Definition, Creation, Ranking

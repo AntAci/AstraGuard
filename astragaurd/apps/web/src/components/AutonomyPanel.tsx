@@ -7,6 +7,35 @@ interface Props {
   onRun: () => void
 }
 
+function decisionSummary(mode: string): { title: string; hint: string } {
+  if (mode === 'MANEUVER') {
+    return { title: 'Execute avoidance burn', hint: 'Risk is sustained near TCA and maneuver is feasible.' }
+  }
+  if (mode === 'DEFER') {
+    return { title: 'Defer and re-evaluate', hint: 'Risk is not sustained enough right now to justify immediate action.' }
+  }
+  if (mode === 'INSURE') {
+    return { title: 'Bind downtime cover', hint: 'Insurance is the lower-cost protective action.' }
+  }
+  return { title: 'No intervention now', hint: 'Current risk profile does not justify immediate operational cost.' }
+}
+
+function trendDirectionLabel(slope: number): string {
+  if (slope > 0) return 'Rising'
+  if (slope < 0) return 'Falling'
+  return 'Flat'
+}
+
+function friendlyActionLabel(action: string): string {
+  if (action === 'schedule_maneuver') return 'Schedule avoidance burn'
+  if (action === 'defer_and_rerun') return 'Re-run at defer time'
+  if (action === 'execute_insurance_purchase') return 'Execute insurance purchase'
+  if (action === 'monitor_24h') return 'Monitor for 24 hours'
+  if (action === 'monitor_6h') return 'Monitor for 6 hours'
+  if (action === 'no_action') return 'No immediate action'
+  return action.replace(/_/g, ' ')
+}
+
 export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun }: Props) {
   const decision = result?.result.consultant_decision
   const value = result?.result.value_signal
@@ -19,6 +48,9 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
       confidence?: number
       decision_mode?: string
       defer_until_utc?: string | null
+      decision_reason_text?: string
+      decision_reason_code?: string
+      llm_disagreed_with_guardrail?: boolean
     }
     | undefined
   const phase3Payment = result?.result.payment as
@@ -35,6 +67,13 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
   const decisionRationale = Array.isArray(decision?.rationale)
     ? decision.rationale.join(' ')
     : (decision?.rationale ?? '')
+  const decisionReason = typeof phase3Decision?.decision_reason_text === 'string'
+    ? phase3Decision.decision_reason_text
+    : ''
+  const llmDisagreed = Boolean(phase3Decision?.llm_disagreed_with_guardrail)
+  const summary = decisionSummary(decisionMode)
+  const whyText = decisionReason || trendMetrics?.gate_reason || summary.hint
+  const showTechnicalRationale = decisionRationale.trim().length > 0 && decisionRationale.trim() !== whyText.trim()
   const roiRatio = result?.result.roi ?? value?.roi_ratio ?? 0
   const isHighEarthImpact = (earthImpact?.impact_score ?? 0) > 0.5
   const earthImpactColor = isHighEarthImpact ? 'var(--red)' : 'var(--green)'
@@ -96,9 +135,27 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                   {new Date(decision.generated_at_utc).toLocaleTimeString()}
                 </span>
               </div>
+              <div style={{
+                marginTop: 8,
+                padding: '8px 10px',
+                background: 'var(--bg-muted)',
+                borderRadius: 8,
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-primary)',
+                fontSize: 11,
+                lineHeight: 1.45,
+              }}>
+                <div style={{ fontWeight: 700, marginBottom: 2 }}>{summary.title}</div>
+                <div style={{ color: 'var(--text-muted)' }}>{summary.hint}</div>
+              </div>
               {deferUntil && (
                 <div style={{ color: 'var(--yellow)', fontSize: 11, marginTop: 6 }}>
                   Defer until: {new Date(deferUntil).toLocaleString()}
+                </div>
+              )}
+              {llmDisagreed && (
+                <div style={{ color: 'var(--orange)', fontSize: 10, marginTop: 6 }}>
+                  AI recommendation differed, deterministic guardrail was applied.
                 </div>
               )}
             </div>
@@ -110,10 +167,10 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                   TREND GATE
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <ValueMetric label="Pc Peak" value={trendMetrics.pc_peak.toExponential(2)} />
-                  <ValueMetric label="Pc Slope" value={trendMetrics.pc_slope.toExponential(2)} />
-                  <ValueMetric label="Stability" value={`${(trendMetrics.pc_stability * 100).toFixed(0)}%`} />
-                  <ValueMetric label="Samples" value={`${trendMetrics.sample_count}`} />
+                  <ValueMetric label="Peak Risk (Pc)" value={trendMetrics.pc_peak.toExponential(2)} />
+                  <ValueMetric label="Trend" value={trendDirectionLabel(trendMetrics.pc_slope)} />
+                  <ValueMetric label="Stability Near Peak" value={`${(trendMetrics.pc_stability * 100).toFixed(0)}%`} />
+                  <ValueMetric label="Window" value={`${trendMetrics.window_minutes}m / ${trendMetrics.cadence_seconds}s`} />
                 </div>
                 <div style={{ color: 'var(--text-muted)', fontSize: 10, marginTop: 8 }}>
                   {trendMetrics.gate_reason}
@@ -130,7 +187,7 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   <ValueMetric label="Direction" value={maneuverPlan.direction ?? '-'} />
                   <ValueMetric label="Delta-V" value={maneuverPlan.delta_v_mps != null ? `${maneuverPlan.delta_v_mps.toFixed(3)} m/s` : '-'} color="var(--red)" />
-                  <ValueMetric label="Burn Time" value={maneuverPlan.burn_time_utc ? new Date(maneuverPlan.burn_time_utc).toLocaleTimeString() : '-'} />
+                  <ValueMetric label="Burn Time" value={maneuverPlan.burn_time_utc ? new Date(maneuverPlan.burn_time_utc).toLocaleString() : '-'} />
                   <ValueMetric label="Early/Late" value={maneuverPlan.early_vs_late_ratio != null ? `${maneuverPlan.early_vs_late_ratio.toFixed(2)}x` : '-'} />
                 </div>
                 <div style={{ color: 'var(--text-muted)', fontSize: 10, marginTop: 8 }}>
@@ -174,7 +231,7 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                   </div>
                   <div>
                     <div style={{ color: 'var(--text-primary)', fontSize: 11, fontWeight: 600 }}>
-                      {earthImpact.impact_score > 0.7 ? 'HIGH RISK' : earthImpact.impact_score > 0.4 ? 'MODERATE' : 'LOW RISK'}
+                      {earthImpact.impact_score > 0.7 ? 'HIGH IMPACT' : earthImpact.impact_score > 0.4 ? 'MODERATE IMPACT' : 'LOW IMPACT'}
                     </div>
                     {earthImpact.nearest_zone && (
                       <div style={{ color: 'var(--text-muted)', fontSize: 10 }}>
@@ -184,6 +241,9 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                     )}
                     <div style={{ color: 'var(--text-muted)', fontSize: 9 }}>
                       {earthImpact.ground_lat.toFixed(2)}°, {earthImpact.ground_lon.toFixed(2)}° · {earthImpact.method}
+                    </div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 9 }}>
+                      This score weights ground-impact context, not orbital collision probability.
                     </div>
                   </div>
                 </div>
@@ -197,13 +257,21 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
               </div>
             )}
 
-            {/* Rationale */}
+            {/* Decision reason */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.1em', marginBottom: 6 }}>
-                RATIONALE
+                WHY THIS DECISION
               </div>
               <div style={{ color: 'var(--text-primary)', fontSize: 11, lineHeight: 1.6 }}>
-                {decisionRationale}
+                {whyText}
+              </div>
+              {showTechnicalRationale && (
+                <div style={{ marginTop: 8, color: 'var(--text-muted)', fontSize: 10, lineHeight: 1.5 }}>
+                  AI note: {decisionRationale}
+                </div>
+              )}
+              <div style={{ marginTop: 6, color: 'var(--text-muted)', fontSize: 10 }}>
+                Decision code: {(phase3Decision?.decision_reason_code ?? trendMetrics?.gate_reason_code ?? 'N/A').toString()}
               </div>
             </div>
 
@@ -222,7 +290,7 @@ export default function AutonomyPanel({ result, selectedEvent, isRunning, onRun 
                     border: '1px solid var(--border-subtle)',
                   }}>
                     <span style={{ color: 'var(--accent-secondary)', fontSize: 10 }}>▶</span>
-                    <span style={{ color: 'var(--text-primary)', fontSize: 11 }}>{action}</span>
+                    <span style={{ color: 'var(--text-primary)', fontSize: 11 }}>{friendlyActionLabel(action)}</span>
                   </div>
                 ))}
               </div>
