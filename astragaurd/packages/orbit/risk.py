@@ -42,7 +42,10 @@ def pc_assumed_encounter_isotropic(
     scale = sigma * sigma
     exponent = -((rho * rho) + (r * r)) / (2.0 * scale)
     integrand = (rho / scale) * np.exp(exponent) * np.i0((rho * r) / scale)
-    pc = float(np.trapz(integrand, rho))
+    try:
+        pc = float(np.trapezoid(integrand, rho))
+    except AttributeError:
+        pc = float(np.trapz(integrand, rho))
 
     if not np.isfinite(pc):
         return 0.0

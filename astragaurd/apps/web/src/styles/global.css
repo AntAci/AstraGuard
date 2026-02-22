@@ -1,3 +1,161 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 228 40% 3%;
+    --foreground: 216 100% 95%;
+    --card: 220 33% 6%;
+    --card-foreground: 216 100% 95%;
+    --popover: 220 33% 6%;
+    --popover-foreground: 216 100% 95%;
+    --primary: 160 93% 54%;
+    --primary-foreground: 228 40% 3%;
+    --secondary: 220 33% 8%;
+    --secondary-foreground: 216 100% 95%;
+    --muted: 220 20% 12%;
+    --muted-foreground: 216 60% 75%;
+    --accent: 160 93% 54%;
+    --accent-foreground: 228 40% 3%;
+    --destructive: 345 100% 62%;
+    --destructive-foreground: 216 100% 95%;
+    --warn: 36 100% 56%;
+    --warn-foreground: 228 40% 3%;
+    --border: 220 20% 14%;
+    --input: 220 20% 14%;
+    --ring: 160 93% 54%;
+    --radius: 0.5rem;
+
+    /* Raw values for rgba usage */
+    --bg-raw: 5, 6, 10;
+    --panel: rgba(10, 14, 20, 0.72);
+    --grid-color: rgba(25, 247, 166, 0.08);
+    --accent-raw: 25, 247, 166;
+    --text-raw: 231, 240, 255;
+
+    --sidebar-background: 220 33% 5%;
+    --sidebar-foreground: 216 100% 95%;
+    --sidebar-primary: 160 93% 54%;
+    --sidebar-primary-foreground: 228 40% 3%;
+    --sidebar-accent: 220 20% 12%;
+    --sidebar-accent-foreground: 216 100% 95%;
+    --sidebar-border: 220 20% 14%;
+    --sidebar-ring: 160 93% 54%;
+  }
+
+  .dark {
+    --background: 228 40% 3%;
+    --foreground: 216 100% 95%;
+    --card: 220 33% 6%;
+    --card-foreground: 216 100% 95%;
+    --popover: 220 33% 6%;
+    --popover-foreground: 216 100% 95%;
+    --primary: 160 93% 54%;
+    --primary-foreground: 228 40% 3%;
+    --secondary: 220 33% 8%;
+    --secondary-foreground: 216 100% 95%;
+    --muted: 220 20% 12%;
+    --muted-foreground: 216 60% 75%;
+    --accent: 160 93% 54%;
+    --accent-foreground: 228 40% 3%;
+    --destructive: 345 100% 62%;
+    --destructive-foreground: 216 100% 95%;
+    --border: 220 20% 14%;
+    --input: 220 20% 14%;
+    --ring: 160 93% 54%;
+    --sidebar-background: 220 33% 5%;
+    --sidebar-foreground: 216 100% 95%;
+    --sidebar-primary: 160 93% 54%;
+    --sidebar-primary-foreground: 228 40% 3%;
+    --sidebar-accent: 220 20% 12%;
+    --sidebar-accent-foreground: 216 100% 95%;
+    --sidebar-border: 220 20% 14%;
+    --sidebar-ring: 160 93% 54%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'IBM Plex Sans Condensed', sans-serif;
+  }
+}
+
+/* Animated grid background */
+@keyframes grid-drift {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 60px 60px, 60px 60px; }
+}
+
+@keyframes scan-line {
+  0% { top: -2px; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: calc(100% + 2px); opacity: 0; }
+}
+
+@keyframes orbit-1 {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes orbit-2 {
+  from { transform: rotate(120deg); }
+  to { transform: rotate(480deg); }
+}
+
+@keyframes orbit-3 {
+  from { transform: rotate(240deg); }
+  to { transform: rotate(600deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.animated-grid {
+  background-image:
+    repeating-linear-gradient(0deg, var(--grid-color) 0px, transparent 1px, transparent 60px),
+    repeating-linear-gradient(90deg, var(--grid-color) 0px, transparent 1px, transparent 60px);
+  animation: grid-drift 20s linear infinite;
+}
+
+.scan-line::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(var(--accent-raw), 0.5), transparent);
+  animation: scan-line 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.radial-vignette {
+  background: radial-gradient(
+    ellipse at 30% 50%,
+    rgba(var(--accent-raw), 0.06) 0%,
+    transparent 50%
+  ),
+  radial-gradient(
+    ellipse at center,
+    transparent 40%,
+    rgba(var(--bg-raw), 0.8) 100%
+  );
+}
+
 :root {
   --bg-page: #f3f6fb;
   --bg-card: #ffffff;
