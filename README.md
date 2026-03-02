@@ -2,16 +2,6 @@
 
 Autonomous maneuver-tax optimization stack: ingest TLEs, screen conjunction risk, run an agentic decision loop (IGNORE/DEFER/MANEUVER, with optional contingency coverage), and minimize recurring operations cost with auditable economics.
 
-## Business Model (2026 Pivot)
-
-AstraGuard is positioned as an **operations-cost optimization platform** for satellite operators, not only a catastrophic-collision alerting tool.
-
-- **Core value promise:** reduce recurring conjunction-response cost (unnecessary burns, fuel depletion, schedule disruption).
-- **Primary KPI:** maneuver tax avoided and delta-v saved per operator fleet.
-- **Commercial model:** software subscription + usage tiering by monitored spacecraft / autonomy runs.
-- **Buyer:** mission operations teams and constellation risk owners who need deterministic, explainable action policies.
-- **Product wedge:** trend-gated defer + minimum-delta-v planning with an auditable ledger and API-first integration.
-
 ## Problem Context (Why This Matters)
 
 Orbital risk is no longer theoretical; congestion and debris growth now create a daily operations problem.
